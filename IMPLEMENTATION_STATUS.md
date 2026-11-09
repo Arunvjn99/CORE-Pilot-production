@@ -2,15 +2,15 @@
 
 Last updated: 2026-11-09
 
-| Phase                                          | Status                                                                                                                                                                        |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 — Foundation                                 | **Implemented and verified locally.** CI pipeline written, not yet run on Azure DevOps.                                                                                       |
-| 2 — Product shell, identity, providers, canvas | **In progress.** Slices 2.1–2.4 (identity, shell, credential vault, provider settings) done and verified locally; 2.5–2.10 pending ([plan](docs/development/phase-2-plan.md)) |
-| 3 — LLM Gateway                                | Not started (ADR-0005 proposed)                                                                                                                                               |
-| 4 — Agent runtime                              | Not started                                                                                                                                                                   |
-| 5 — Design system & Knowledge                  | Not started. Blocked on B1 (CORE React package source)                                                                                                                        |
-| 6 — Visual canvas                              | Not started (ADR-0006 proposed)                                                                                                                                               |
-| 7 — Integrations & readiness                   | Not started                                                                                                                                                                   |
+| Phase                                          | Status                                                                                                                                                                                                              |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 — Foundation                                 | **Implemented and verified locally.** CI pipeline written, not yet run on Azure DevOps.                                                                                                                             |
+| 2 — Product shell, identity, providers, canvas | **In progress.** Slices 2.1–2.5 (identity, shell, credential vault, provider settings, projects and workspace shell) done and verified locally; remaining slices pending ([plan](docs/development/phase-2-plan.md)) |
+| 3 — LLM Gateway                                | Not started (ADR-0005 proposed)                                                                                                                                                                                     |
+| 4 — Agent runtime                              | Not started                                                                                                                                                                                                         |
+| 5 — Design system & Knowledge                  | Not started. Blocked on B1 (CORE React package source)                                                                                                                                                              |
+| 6 — Visual canvas                              | Not started (ADR-0006 proposed)                                                                                                                                                                                     |
+| 7 — Integrations & readiness                   | Not started                                                                                                                                                                                                         |
 
 ## Phase 1 modules
 
@@ -79,3 +79,18 @@ Authentication (Entra ID) — the API currently exposes only health endpoints. S
 | Web: provider settings UI (all requirements of slice 2.4)                         | Done         | 10 unit + 3 E2E on production images (real step-up, real OpenAI call, real Ollama); screenshots in `docs/screenshots/slice-2.4/` |
 | Managed-identity service auth in Azure                                            | Config-ready | Needs Azure (same validation path as local)                                                                                      |
 | Azure OpenAI deployment-name verification                                         | Not done     | Listing proves key/resource only (ADR-0011)                                                                                      |
+
+## Phase 2 — slice 2.5 Project dashboard and workspace shell (2026-11-09)
+
+Re-scoped with the product owner: projects and pages are stored in PostgreSQL now; the project repository (D6) arrives in a later slice and will turn pages into route files. The code-edit engine and preview runtime move back one slice each.
+
+| Module                                                                                               | State                             | Evidence                                                                         |
+| ---------------------------------------------------------------------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------- |
+| Projects and pages persistence (RLS, same-team FK, unique names/routes, concurrency, archive, audit) | Done                              | 15 integration tests                                                             |
+| Projects and pages API                                                                               | Done                              | Integration tests incl. viewer read-only, cross-team 404, cross-project page ids |
+| Dashboard (cards, recent, search, tabs, create/rename/archive/restore, states)                       | Done                              | Unit + E2E                                                                       |
+| Workspace shell (toolbar, section navigation, page list, assistant panel, drawers)                   | Done                              | Unit + E2E at 1280, 1440 (dark) and 820 px (tablet, dark)                        |
+| Page management (create with suggested route, rename, delete with confirmation, arrow keys)          | Done                              | Unit + E2E acceptance journey with reload                                        |
+| Theme (system/light/dark)                                                                            | Done                              | Unit + E2E axe in both themes                                                    |
+| Visual canvas, code editor, AI assistant, design system                                              | Honest “not available yet” states | Canvas: slices 2.6–2.7; assistant: edit loop; design system: Phase 5 (B1)        |
+| Project repository (source files)                                                                    | Not started                       | Later slice (D6)                                                                 |

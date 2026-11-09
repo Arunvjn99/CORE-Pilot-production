@@ -5,6 +5,9 @@ import { RouterProvider } from 'react-router/dom';
 import { router } from './app/router';
 import { AuthGate } from './features/auth/auth-gate';
 import './index.css';
+import { applyTheme } from './lib/theme';
+
+applyTheme();
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1 } } });
 const root = document.getElementById('root');

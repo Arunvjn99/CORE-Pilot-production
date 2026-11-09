@@ -29,7 +29,7 @@ test('admin manages a team from the product shell', async ({ browser }) => {
   // Shell navigation and pages
   const nav = page.getByRole('navigation', { name: 'Main' });
   await expect(nav.getByRole('link', { name: 'Projects' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'No projects yet' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Projects', level: 1 })).toBeVisible();
   await expectAccessible(page);
 
   await nav.getByRole('link', { name: 'Settings' }).click();

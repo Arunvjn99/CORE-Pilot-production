@@ -4,11 +4,18 @@ import { MembersPage } from '../features/settings/members-page';
 import { AiProvidersPage } from '../features/ai-providers/ai-providers-page';
 import { DesignSystemsPage } from '../features/settings/placeholder-pages';
 import { SettingsLayout } from '../features/settings/settings-layout';
+import { WorkspaceRoute } from '../features/projects/workspace/workspace-layout';
 import { AppShell } from './app-shell';
 import { NotFoundPage } from './not-found-page';
 import { RouteError } from './route-error';
 
 export const router = createBrowserRouter([
+  // The project workspace is full-screen and has its own toolbar and navigation.
+  {
+    path: 'projects/:projectId/:section?',
+    element: <WorkspaceRoute />,
+    errorElement: <RouteError />,
+  },
   {
     element: <AppShell />,
     errorElement: <RouteError />,

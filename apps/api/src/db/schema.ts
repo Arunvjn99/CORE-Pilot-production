@@ -4,6 +4,7 @@ import {
   check,
   customType,
   index,
+  integer,
   smallint,
   jsonb,
   pgEnum,
@@ -341,5 +342,58 @@ export const organizationLlmDefaults = pgTable(
       using: isPlatformAdmin,
       withCheck: isPlatformAdmin,
     }),
+  ],
+).enableRLS();
+
+export const projectStatus = pgEnum('project_status', ['active', 'archived']);
+
+/** A React app owned by a team. Metadata lives here; the repo store arrives in a later slice (D6). */
+export const projects = pgTable(
+  'projects',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    status: projectStatus('status').notNull().default('active'),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    lastOpenedAt: timestamp('last_opened_at', { withTimezone: true }),
+  },
+  (t) => [
+    index('projects_org_status_idx').on(t.organizationId, t.status, t.updatedAt),
+    // Names are unique per team among active projects (case-insensitive).
+    uniqueIndex('projects_org_active_name_idx')
+      .on(t.organizationId, sql`lower(${t.name})`)
+      .where(sql`${t.status} = 'active'`),
+    tenantIsolation('projects'),
+  ],
+).enableRLS();
+
+/** Pages of a project. organization_id is denormalised so RLS applies directly. */
+export const projectPages = pgTable(
+  'project_pages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id')
+      .notNull()
+      .references(() => projects.id, { onDelete: 'cascade' }),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    route: text('route').notNull(),
+    position: integer('position').notNull(),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('project_pages_route_idx').on(t.projectId, t.route),
+    index('project_pages_project_idx').on(t.projectId, t.position),
+    tenantIsolation('project_pages'),
   ],
 ).enableRLS();

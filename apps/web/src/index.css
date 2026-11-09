@@ -13,10 +13,19 @@
   --color-accent: light-dark(#1f4fd1, #8fb0ff);
   --color-accent-hover: light-dark(#173ea6, #b3cbff);
   --color-accent-contrast: light-dark(#ffffff, #0f1115);
+  --color-surface-raised: light-dark(#ffffff, #1d2129);
+  --color-canvas: light-dark(#eef0f3, #0b0d10);
 }
 
 :root {
   color-scheme: light dark;
+}
+/* Explicit user choice (see src/lib/theme.ts); tokens use light-dark(), so only the scheme changes. */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 body {
   background: var(--color-surface);

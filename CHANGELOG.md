@@ -1,6 +1,16 @@
 # Changelog
 
-## [Unreleased] — Phase 2, slice 2.4 AI provider settings (2026-11-09)
+## [Unreleased] — Phase 2, slice 2.5 Project dashboard and workspace shell (2026-11-09)
+
+### Added
+
+- Projects and pages persisted in PostgreSQL (migration 0007, team RLS, same-team composite FK, audit events) with optimistic concurrency (`expectedUpdatedAt`) and archive/restore instead of deletion.
+- API: `GET/POST /projects`, `GET/PATCH /projects/:id`, `POST /projects/:id/open`, `GET/POST /projects/:id/pages`, `PATCH/DELETE /projects/:id/pages/:pageId`.
+- Dashboard: project cards (name, description, pages, last modified, status), recently opened, search, active/archived tabs, create, rename, archive and restore, loading/empty/error states.
+- Full-screen project workspace: toolbar, section navigation (Visual canvas, Code editor, AI assistant, Design system, Project settings), page list with add/rename/delete (confirmation) and arrow-key navigation, collapsible AI assistant panel placeholder, tablet drawers.
+- Light/dark/system theme switch in the user menu.
+
+## Phase 2, slice 2.4 AI provider settings (2026-11-09)
 
 ### Added
 

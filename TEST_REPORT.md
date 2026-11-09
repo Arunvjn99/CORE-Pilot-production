@@ -54,3 +54,15 @@ Not yet run: the Azure DevOps pipeline itself (no run has occurred). Coverage th
 | Web unit                                                                                                             | **23/23** (10 new)                                                              |
 | E2E on production images, with `E2E_OLLAMA_URL` set to the developer's local Ollama                                  | **12/12** (3 new; the Ollama test skips when the variable is unset, e.g. in CI) |
 | Live provider checks (pinned egress)                                                                                 | OpenAI, Anthropic, Gemini: `unauthorized` for fake keys; Ollama: `ok`, 4 models |
+
+## Phase 2 — slice 2.5 (2026-11-09)
+
+| Suite                                                                                                                                                                                         | Result                       |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| TypeScript lint, typecheck, unit and build (`turbo --force`)                                                                                                                                  | 12/12 tasks                  |
+| API unit / integration                                                                                                                                                                        | 48/48 · **102/102** (15 new) |
+| AI runtime                                                                                                                                                                                    | 69/69                        |
+| Web unit                                                                                                                                                                                      | **38/38** (15 new)           |
+| E2E on production images (acceptance journey incl. reload persistence; dashboard archive/restore; dark theme at tablet and desktop; axe on dashboard, dialogs, workspace sections and drawer) | **16/16** (4 new)            |
+
+Defects found by E2E and fixed before commit: Project settings crashed because the shared form rendered a dialog Cancel outside a dialog (unit test added); the assistant panel covered the work area on tablets (now closed by default below 1280px).

@@ -127,3 +127,19 @@
 | R15 | Managed-identity runtime auth not exercised in Azure                                                                         | Same JWT validation as local; Azure smoke test with R12 |
 | R16 | Endpoint is not bound into the envelope AAD; a compromised API could aim a stored key at its own endpoint (for Azure/Ollama) | Envelope v2 (bind endpoint), Phase 7                    |
 | R17 | Unfixed Debian CVEs in the python slim base                                                                                  | Track; rebuild when fixes publish                       |
+
+## Phase 2 — slice 2.5 (2026-11-09)
+
+- **Team isolation:** `projects` and `project_pages` use forced RLS on `organization_id`. A composite foreign key `(project_id, organization_id)` makes a page from another team impossible even if RLS were bypassed (tested). Other teams' ids return 404.
+- **Authorization:** reads need `projects:read`; every write needs `projects:write`, so viewers are read-only (tested). Every write is CSRF-protected.
+- **Integrity:** `expectedUpdatedAt` concurrency prevents silent lost updates. Routes are restricted to lowercase URL-safe segments, so they are safe as future file paths (no `..` or uppercase). The last page can't be deleted. Projects are archived, never hard-deleted (no DELETE grant).
+- **Audit:** project created, updated, archived and restored; page created, updated and deleted.
+- **Browser storage:** only the theme preference (`localStorage`, no user data; failures ignored).
+- **Scans:** Trivy `--ignore-unfixed` api, web, ai-runtime 0; `pnpm audit --prod` 0; gitleaks clean. No new dependencies.
+
+### New risks
+
+| ID  | Risk                                                                             | Status                                                        |
+| --- | -------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| R18 | “Recently opened” is per project (last open by anyone in the team), not per user | Per-user recents if needed, with the usage data in slice 2.10 |
+| R19 | Page metadata will need reconciling with route files when the repository arrives | Repository slice owns the migration                           |
