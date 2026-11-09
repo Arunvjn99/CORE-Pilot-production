@@ -1,11 +1,11 @@
-# Extends the default ruleset. Only test fixtures with deliberately fake secrets are allow-listed.
+# Extends the default ruleset. Only the shared cross-language test vector is allow-listed:
+# it intentionally contains a fake plaintext key and ciphertext material. Every other
+# file, including tests, is scanned with the full default rules.
 [extend]
 useDefault = true
 
 [allowlist]
-description = "Fake secrets used by automated tests"
+description = "Deliberately fake envelope test vector"
 paths = [
-  '''packages/contracts/test-vectors/.*\.json''',
-  '''apps/api/test/.*\.ts''',
-  '''services/ai-runtime/tests/.*\.py''',
+  '''^packages/contracts/test-vectors/credential-envelope-v1\.json$''',
 ]

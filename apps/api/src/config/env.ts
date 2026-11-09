@@ -51,6 +51,16 @@ export const envSchema = z
           .filter(Boolean),
       )
       .pipe(z.array(z.uuid())),
+    /** Hosts exempt from the production private-address endpoint block (e.g. VNet Ollama). */
+    LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean),
+      ),
     /** Envelope-encryption KEK source (ADR-0010). `local` is for development/test only. */
     CREDENTIAL_KEK_PROVIDER: z.enum(['local', 'azure-key-vault']).default('local'),
     LOCAL_KEK: z

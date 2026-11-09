@@ -22,6 +22,7 @@ import {
   platformLlmEntitlements,
 } from '../db/schema.js';
 import { credentialAad, displayHint, type SealedSecret, sealSecret } from './crypto/envelope.js';
+import { checkProviderEndpoint } from './endpoint-policy.js';
 import type { KeyWrapper } from './crypto/key-wrapper.js';
 import { KEY_WRAPPER } from './crypto/key-wrapper.provider.js';
 
@@ -101,16 +102,17 @@ export class CredentialsService {
     };
   }
 
-  /** Outside development, provider endpoints must be HTTPS; prevents downgrade and limits SSRF surface. */
+  /** SSRF policy for customer endpoints; the AI runtime re-checks resolved addresses at call time. */
   private assertEndpoint(input: CredentialInput): void {
-    if (
-      input.endpoint &&
-      this.config.NODE_ENV === 'production' &&
-      !input.endpoint.startsWith('https://')
-    ) {
+    if (!input.endpoint) return;
+    const violation = checkProviderEndpoint(input.endpoint, {
+      production: this.config.NODE_ENV === 'production',
+      allowedPrivateHosts: this.config.LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS,
+    });
+    if (violation) {
       throw new BadRequestException({
-        message: 'Provider endpoints must use HTTPS',
-        details: [{ path: 'endpoint', message: 'Must use https' }],
+        message: `Invalid provider endpoint: ${violation}`,
+        details: [{ path: 'endpoint', message: violation }],
       });
     }
   }
