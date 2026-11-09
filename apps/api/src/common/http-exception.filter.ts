@@ -10,6 +10,33 @@ import type { ErrorResponse } from '@core-studio/contracts';
 import { ThrottlerException } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 
+type Detail = { path: string; message: string };
+
+function errorCode(exception: unknown, status: number, payload: unknown): string {
+  if (exception instanceof ThrottlerException) return 'RATE_LIMITED';
+  if (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'code' in payload &&
+    typeof payload.code === 'string'
+  ) {
+    return payload.code;
+  }
+  return HttpStatus[status] ?? 'ERROR';
+}
+
+function errorDetails(payload: unknown): Detail[] | undefined {
+  if (
+    typeof payload === 'object' &&
+    payload !== null &&
+    'details' in payload &&
+    Array.isArray(payload.details)
+  ) {
+    return payload.details as Detail[];
+  }
+  return undefined;
+}
+
 /** Produces the shared error envelope. Never leaks stack traces or internal messages for 5xx. */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -26,17 +53,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     if (status >= 500) this.logger.error({ err: exception, correlationId }, 'Unhandled error');
 
+    const isClientError = exception instanceof HttpException && status < 500;
+    const payload = exception instanceof HttpException ? exception.getResponse() : null;
+    const details = isClientError ? errorDetails(payload) : undefined;
     const body: ErrorResponse = {
       error: {
-        code:
-          exception instanceof ThrottlerException
-            ? 'RATE_LIMITED'
-            : (HttpStatus[status] ?? 'ERROR'),
-        message:
-          status >= 500 || !(exception instanceof HttpException)
-            ? 'Internal server error'
-            : exception.message,
+        code: isClientError
+          ? errorCode(exception, status, payload)
+          : (HttpStatus[status] ?? 'ERROR'),
+        message: isClientError ? exception.message : 'Internal server error',
         correlationId,
+        ...(details ? { details } : {}),
       },
     };
     res.status(status).json(body);

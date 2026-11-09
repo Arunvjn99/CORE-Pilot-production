@@ -15,3 +15,12 @@
 | Stack smoke                                       | `docker compose up --wait`                          | migrate job exit 0; api, ai-runtime healthy; web serving                                   |
 
 Not yet run: the Azure DevOps pipeline itself (no run has occurred). Coverage thresholds are not yet enforced (to add with Phase 2 business logic).
+
+## Phase 2 — slice 2.1 (2026-11-09)
+
+| Suite                                                                                                                                                                             | Result    |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| API unit (config, correlation, permissions, returnTo, audit sanitising)                                                                                                           | **16/16** |
+| API integration (real Postgres, Redis and OIDC test server): HTTP foundation 7, RLS 6, auth/session/CSRF/step-up 15, RBAC/cross-team/DB privileges 27                             | **55/55** |
+| Web unit                                                                                                                                                                          | **7/7**   |
+| E2E on the composed production images (real OIDC sign-in through the browser, axe on sign-in and workspace, cookie flags, empty browser storage, sign-out, wrong tenant, no-team) | **7/7**   |

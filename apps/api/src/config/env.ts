@@ -30,6 +30,27 @@ export const envSchema = z
     AI_RUNTIME_URL: z.url({ protocol: /^https?$/ }),
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(10_000).default(120),
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
+    PUBLIC_APP_ORIGIN: z.url({ protocol: /^https?$/ }).transform((value) => new URL(value).origin),
+    OIDC_ISSUER_URL: z.url({ protocol: /^https?$/ }),
+    OIDC_CLIENT_ID: z.string().min(1),
+    OIDC_CLIENT_SECRET: z.string().min(16),
+    /** Single-company deployment: only identities from this Entra tenant may sign in (ADR-0009). */
+    OIDC_ALLOWED_TENANT_ID: z.uuid(),
+    OIDC_SCOPES: z.string().default('openid profile email'),
+    SESSION_IDLE_TIMEOUT_MINUTES: z.coerce.number().int().min(5).max(240).default(30),
+    SESSION_ABSOLUTE_TIMEOUT_HOURS: z.coerce.number().int().min(1).max(24).default(12),
+    STEP_UP_MAX_AGE_MINUTES: z.coerce.number().int().min(1).max(60).default(10),
+    /** Entra object IDs granted company-admin on sign-in (grant only; revocation is manual). */
+    BOOTSTRAP_PLATFORM_ADMIN_OBJECT_IDS: z
+      .string()
+      .default('')
+      .transform((value) =>
+        value
+          .split(',')
+          .map((item) => item.trim().toLowerCase())
+          .filter(Boolean),
+      )
+      .pipe(z.array(z.uuid())),
     API_DOCS_ENABLED: z
       .enum(['true', 'false'])
       .default('false')
@@ -57,6 +78,21 @@ export const envSchema = z
         code: 'custom',
         path: ['CORS_ALLOWED_ORIGINS'],
         message: 'Production origins must be https',
+      });
+    }
+    if (!env.PUBLIC_APP_ORIGIN.startsWith('https://')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PUBLIC_APP_ORIGIN'],
+        message: 'Production requires https',
+      });
+    }
+    const entraIssuer = `https://login.microsoftonline.com/${env.OIDC_ALLOWED_TENANT_ID}/v2.0`;
+    if (env.OIDC_ISSUER_URL.replace(/\/$/, '') !== entraIssuer) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['OIDC_ISSUER_URL'],
+        message: `Production issuer must be ${entraIssuer}`,
       });
     }
     if (env.API_DOCS_ENABLED) {

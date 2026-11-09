@@ -1,6 +1,17 @@
 # Changelog
 
-## [Unreleased] — Phase 1 Foundation (2026-11-09)
+## [Unreleased] — Phase 2, slice 2.1 Identity & sessions (2026-11-09)
+
+### Added
+
+- OIDC (Entra-ready) BFF sign-in with PKCE, server-side Redis sessions, CSRF protection, step-up re-authentication.
+- Users directory, teams, memberships, team roles and company admin with RLS; audit and security events.
+- Team and member APIs (`/orgs`, `/orgs/:orgId/members`, `/directory/users`).
+- Web: sign-in page, auth gate, team switcher, no-team onboarding, sign-out.
+- Local/CI OIDC test server in docker-compose; `scripts/test-e2e.sh`.
+- ADR-0009.
+
+## Phase 1 Foundation (2026-11-09)
 
 ### Added
 

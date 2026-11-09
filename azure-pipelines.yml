@@ -72,7 +72,7 @@ stages:
             displayName: API integration tests (Postgres RLS, Redis, HTTP hardening)
           - script: |
               pnpm --filter @core-studio/web exec playwright install --with-deps chromium
-              E2E_BASE_URL=http://localhost:8080 pnpm --filter @core-studio/web test:e2e
+              ./scripts/test-e2e.sh
             displayName: E2E + accessibility (axe, WCAG 2.2 AA)
           - script: |
               for image in api ai-runtime web; do

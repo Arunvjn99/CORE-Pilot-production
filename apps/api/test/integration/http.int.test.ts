@@ -1,17 +1,15 @@
 import { Controller, Get } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type ErrorResponse, errorResponseSchema } from '@core-studio/contracts';
-import { AppModule } from '../../src/app.module.js';
-import { configureApp } from '../../src/app.setup.js';
-import { loadConfig } from '../../src/config/env.js';
-import { requireEnv } from './env.js';
+import { Public } from '../../src/auth/decorators.js';
+import { createTestApp } from './support/app.js';
 
 const RATE_LIMIT = 5;
 
 /** Test-only route: the throttler guard applies to matched handlers. */
+@Public()
 @Controller({ path: 'probe', version: '1' })
 class ProbeController {
   @Get()
@@ -22,25 +20,7 @@ class ProbeController {
 let app: NestExpressApplication;
 
 beforeAll(async () => {
-  const config = loadConfig({
-    NODE_ENV: 'test',
-    LOG_LEVEL: 'error',
-    DATABASE_URL: requireEnv('TEST_DATABASE_URL'),
-    REDIS_URL: requireEnv('TEST_REDIS_URL'),
-    CORS_ALLOWED_ORIGINS: 'http://allowed.test',
-    AI_RUNTIME_URL: 'http://localhost:8000',
-    RATE_LIMIT_PER_MINUTE: String(RATE_LIMIT),
-  });
-  const moduleRef = await Test.createTestingModule({
-    imports: [AppModule.forRoot(config)],
-    controllers: [ProbeController],
-  }).compile();
-  app = moduleRef.createNestApplication<NestExpressApplication>({ bufferLogs: true });
-  configureApp(app, config);
-  await app.init();
-  // Isolate rate-limit state between runs.
-  const { REDIS } = await import('../../src/redis/redis.tokens.js');
-  await app.get<{ flushdb: () => Promise<unknown> }>(REDIS).flushdb();
+  ({ app } = await createTestApp({ RATE_LIMIT_PER_MINUTE: String(RATE_LIMIT) }, [ProbeController]));
 });
 
 afterAll(async () => {
@@ -91,7 +71,7 @@ describe('API HTTP foundation', () => {
     expect(replaced.headers['x-correlation-id']).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it('returns the shared error envelope for unknown routes', async () => {
+  it('rejects unauthenticated access to unknown routes with the shared envelope', async () => {
     const res = await request(app.getHttpServer()).get('/api/v1/does-not-exist').expect(404);
     expect(errorResponseSchema.parse(res.body).error).toMatchObject({
       code: 'NOT_FOUND',

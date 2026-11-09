@@ -8,7 +8,10 @@ import { CORRELATION_ID_HEADER } from '@core-studio/contracts';
 import { ConfigModule } from './config/config.module.js';
 import type { AppConfig } from './config/env.js';
 import { DatabaseModule } from './db/database.module.js';
+import { AuditModule } from './audit/audit.module.js';
+import { AuthModule } from './auth/auth.module.js';
 import { HealthModule } from './health/health.module.js';
+import { OrgsModule } from './orgs/orgs.module.js';
 import { RedisThrottlerStorage } from './redis/redis-throttler.storage.js';
 import { RedisModule } from './redis/redis.module.js';
 
@@ -52,7 +55,10 @@ export class AppModule {
             storage,
           }),
         }),
+        AuditModule,
         HealthModule,
+        AuthModule,
+        OrgsModule,
       ],
       providers: [
         { provide: APP_GUARD, useClass: ThrottlerGuard },

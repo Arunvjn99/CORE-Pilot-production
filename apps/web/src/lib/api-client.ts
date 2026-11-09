@@ -1,4 +1,4 @@
-import { CORRELATION_ID_HEADER, errorResponseSchema } from '@core-studio/contracts';
+import { CORRELATION_ID_HEADER, CSRF_HEADER, errorResponseSchema } from '@core-studio/contracts';
 import type { z } from 'zod';
 
 export class ApiError extends Error {
@@ -14,20 +14,18 @@ export class ApiError extends Error {
 }
 
 /**
- * Same-origin fetch with cookie credentials (BFF session from Phase 2) and response validation.
- * Never attaches bearer tokens; nothing auth-related is kept in browser storage.
+ * CSRF token lives only in memory (from GET /auth/session); never in browser storage.
+ * Auth itself is the HttpOnly session cookie, sent automatically for same-origin requests.
  */
-export async function apiGet<T>(
-  path: `/api/v1/${string}`,
-  schema: z.ZodType<T>,
-  signal?: AbortSignal,
-): Promise<T> {
-  const response = await fetch(path, {
-    credentials: 'same-origin',
-    headers: { accept: 'application/json' },
-    signal: signal ?? null,
-  });
-  const body: unknown = await response.json().catch(() => null);
+let csrfToken: string | null = null;
+export function setCsrfToken(token: string | null): void {
+  csrfToken = token;
+}
+
+type ApiPath = `/api/v1/${string}`;
+
+async function handle<T>(response: Response, schema: z.ZodType<T> | null): Promise<T> {
+  const body: unknown = response.status === 204 ? null : await response.json().catch(() => null);
   if (!response.ok) {
     const parsed = errorResponseSchema.safeParse(body);
     throw new ApiError(
@@ -39,5 +37,35 @@ export async function apiGet<T>(
       response.headers.get(CORRELATION_ID_HEADER),
     );
   }
-  return schema.parse(body);
+  return schema ? schema.parse(body) : (undefined as T);
+}
+
+export async function apiGet<T>(
+  path: ApiPath,
+  schema: z.ZodType<T>,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(path, {
+    credentials: 'same-origin',
+    headers: { accept: 'application/json' },
+    signal: signal ?? null,
+  });
+  return handle(response, schema);
+}
+
+export async function apiSend<T = undefined>(
+  method: 'POST' | 'PATCH' | 'PUT' | 'DELETE',
+  path: ApiPath,
+  options: { body?: unknown; schema?: z.ZodType<T> } = {},
+): Promise<T> {
+  const headers: Record<string, string> = { accept: 'application/json' };
+  if (csrfToken) headers[CSRF_HEADER] = csrfToken;
+  if (options.body !== undefined) headers['content-type'] = 'application/json';
+  const response = await fetch(path, {
+    method,
+    credentials: 'same-origin',
+    headers,
+    body: options.body === undefined ? null : JSON.stringify(options.body),
+  });
+  return handle(response, options.schema ?? null);
 }

@@ -9,12 +9,14 @@ import {
 import { SkipThrottle } from '@nestjs/throttler';
 import type pg from 'pg';
 import type { Redis } from 'ioredis';
+import { Public } from '../auth/decorators.js';
 import { APP_CONFIG } from '../config/config.module.js';
 import type { AppConfig } from '../config/env.js';
 import { PG_POOL } from '../db/database.module.js';
 import { REDIS } from '../redis/redis.module.js';
 
 @ApiTags('health')
+@Public()
 @SkipThrottle()
 @Controller({ path: 'health', version: '1' })
 export class HealthController {
