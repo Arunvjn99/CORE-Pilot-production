@@ -73,9 +73,7 @@ test('admin manages a team from the product shell', async ({ browser }) => {
     .getByRole('navigation', { name: 'Settings' })
     .getByRole('link', { name: 'AI providers' })
     .click();
-  await expect(
-    page.getByRole('heading', { name: 'AI providers are not configured yet' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Team credentials' })).toBeVisible();
   await page
     .getByRole('navigation', { name: 'Settings' })
     .getByRole('link', { name: 'Design systems' })

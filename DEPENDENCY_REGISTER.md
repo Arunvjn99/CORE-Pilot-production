@@ -75,3 +75,5 @@ Rejected: `eslint-plugin-jsx-a11y` (no ESLint 10 support; axe-core covers runtim
 Local/CI only: `ghcr.io/navikt/mock-oauth2-server:3.0.1` (MIT), the OIDC test server (never in production).
 
 AI runtime additions (slice 2.3): `cryptography` 50.0.2 (Apache-2.0/BSD) for AES-GCM; `azure-identity` 1.27.0 and `azure-keyvault-keys` 4.11.3 (MIT) for Key Vault unwrap.
+
+AI runtime additions (slice 2.4): `httpx2` 2.16.0 (BSD-3, moved from dev to runtime) for pinned provider egress; `PyJWT[crypto]` 2.15.1 (MIT) for service-token validation (already present transitively via azure-identity/msal; now declared).

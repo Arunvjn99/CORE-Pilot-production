@@ -20,7 +20,7 @@ Scope: customer-supplied endpoints for Azure OpenAI and Ollama. The other provid
 - Development and test allow `http://localhost` so local Ollama works. The always-on rules still apply.
 - Tests: `apps/api/test/unit/endpoint-policy.test.ts`, with 17 blocked production cases and 4 always-blocked cases.
 
-## Required for the AI runtime gateway (gating condition for the gateway slice)
+## AI runtime gateway (implemented in slice 2.4, `services/ai-runtime/src/ai_runtime/gateway/egress.py`)
 
 1. Resolve the host once, and check **every** returned address with the same ranges as `isBlockedAddress` (shared list in `packages/contracts` or a mirrored Python list with a parity test).
 2. Connect to the checked IP (pin it), sending the original Host header and SNI. Do not let the HTTP client re-resolve.
@@ -30,4 +30,4 @@ Scope: customer-supplied endpoints for Azure OpenAI and Ollama. The other provid
 
 ## Residual risk
 
-Until the gateway exists, there is no outbound call, so no exploitable SSRF today. The rows that currently store endpoints have passed only the save-time check. The gateway re-checks them at call time, so tightening the policy later does not require a data migration.
+Connect-time enforcement is implemented and tested (`tests/test_gateway.py`). Item 4 (network-level egress policy) and item 1's shared list are partially met: classification is shared via `packages/contracts/test-vectors/egress-address-cases.json`; Azure egress rules come with the infrastructure in Phase 7. The rows that currently store endpoints have passed only the save-time check. The gateway re-checks them at call time, so tightening the policy later does not require a data migration.

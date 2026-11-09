@@ -7,9 +7,17 @@ if (!tenantId || !adminOid)
   throw new Error('E2E_TENANT_ID and E2E_ADMIN_OID are required (see scripts/test-e2e.sh)');
 
 /** Completes the real OIDC flow through the local test IdP's sign-in form. */
-export async function signIn(page: Page, identity: { oid: string; name: string; email?: string }) {
+export type Identity = { oid: string; name: string; email?: string };
+
+export async function signIn(page: Page, identity: Identity) {
   await page.goto('/');
   await page.getByRole('link', { name: 'Sign in with Microsoft' }).click();
+  await completeIdpForm(page, identity);
+  await expect(page.getByLabel('Signed in as')).toHaveText(identity.name);
+}
+
+/** Fills the local test IdP's sign-in form (also used for step-up re-authentication). */
+export async function completeIdpForm(page: Page, identity: Identity) {
   await page.locator('input[name="username"]').fill(identity.oid);
   await page.locator('[name="claims"]').fill(
     JSON.stringify({
@@ -20,7 +28,6 @@ export async function signIn(page: Page, identity: { oid: string; name: string; 
     }),
   );
   await page.getByRole('button', { name: 'Sign-in' }).click();
-  await expect(page.getByLabel('Signed in as')).toHaveText(identity.name);
 }
 
 export async function expectAccessible(page: Page) {

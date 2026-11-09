@@ -1,7 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { ProjectDashboard } from '../features/projects/project-dashboard';
 import { MembersPage } from '../features/settings/members-page';
-import { AiProvidersPage, DesignSystemsPage } from '../features/settings/placeholder-pages';
+import { AiProvidersPage } from '../features/ai-providers/ai-providers-page';
+import { DesignSystemsPage } from '../features/settings/placeholder-pages';
 import { SettingsLayout } from '../features/settings/settings-layout';
 import { AppShell } from './app-shell';
 import { NotFoundPage } from './not-found-page';

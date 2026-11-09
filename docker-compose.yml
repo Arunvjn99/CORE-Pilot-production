@@ -77,6 +77,9 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?set in .env}
       AI_RUNTIME_URL: http://ai-runtime:8000
+      # Service-to-service auth (ADR-0011): client-credentials from the local IdP; Azure uses managed identity.
+      AI_RUNTIME_AUTH_MODE: client-credentials
+      AI_RUNTIME_TOKEN_SCOPE: api://core-ai-runtime/.default
       API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       TRUST_PROXY_HOPS: '1'
@@ -107,6 +110,16 @@ services:
       APP_ENV: ${NODE_ENV:-development}
       SERVICE_VERSION: ${IMAGE_TAG:-local}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      CREDENTIAL_KEK_PROVIDER: local
+      LOCAL_KEK: ${LOCAL_KEK:?set in .env}
+      SERVICE_AUTH_ISSUER: ${OIDC_ISSUER_URL:-http://oidc.localhost:8180/default}
+      SERVICE_AUTH_AUDIENCE: api://core-ai-runtime/.default
+      SERVICE_AUTH_ALLOWED_CALLERS: ${OIDC_CLIENT_ID:-core-studio-local}
+      LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS: ${LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS:-}
+    # Lets a self-hosted Ollama on the developer machine be reached as host.docker.internal.
+    extra_hosts: ['host.docker.internal:host-gateway']
+    depends_on:
+      oidc: { condition: service_started }
     # Internal only: reachable from api on the compose network, not published to the host.
     expose: ['8000']
 

@@ -6,7 +6,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import type { CreateCredential, CredentialPolicy, CredentialSummary } from '@core-studio/contracts';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
 import type { z } from 'zod';
 import type { credentialInputSchema } from '@core-studio/contracts';
 import { AuditService } from '../audit/audit.service.js';
@@ -17,6 +17,7 @@ import { DATABASE } from '../db/database.module.js';
 import { type Database, withDbContext } from '../db/database.js';
 import {
   llmCredentials,
+  organizationLlmDefaults,
   organizations,
   platformLlmCredentials,
   platformLlmEntitlements,
@@ -66,6 +67,8 @@ const summaryColumns = {
   displayHint: llmCredentials.displayHint,
   createdAt: llmCredentials.createdAt,
   rotatedAt: llmCredentials.rotatedAt,
+  lastTestCode: llmCredentials.lastTestCode,
+  lastTestedAt: llmCredentials.lastTestedAt,
 };
 
 const platformSummaryColumns = {
@@ -80,6 +83,8 @@ const platformSummaryColumns = {
   displayHint: platformLlmCredentials.displayHint,
   createdAt: platformLlmCredentials.createdAt,
   rotatedAt: platformLlmCredentials.rotatedAt,
+  lastTestCode: platformLlmCredentials.lastTestCode,
+  lastTestedAt: platformLlmCredentials.lastTestedAt,
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
@@ -156,12 +161,14 @@ export class CredentialsService {
           ...row,
           createdAt: row.createdAt.toISOString(),
           rotatedAt: iso(row.rotatedAt),
+          lastTestedAt: iso(row.lastTestedAt),
         })),
         ...platform.map((row) => ({
           ...row,
           scope: 'platform' as const,
           createdAt: row.createdAt.toISOString(),
           rotatedAt: iso(row.rotatedAt),
+          lastTestedAt: iso(row.lastTestedAt),
         })),
       ];
     });
@@ -224,7 +231,12 @@ export class CredentialsService {
           kekId: sealed?.kekId ?? null,
         },
       });
-      return { ...row, createdAt: row.createdAt.toISOString(), rotatedAt: iso(row.rotatedAt) };
+      return {
+        ...row,
+        createdAt: row.createdAt.toISOString(),
+        rotatedAt: iso(row.rotatedAt),
+        lastTestedAt: iso(row.lastTestedAt),
+      };
     });
   }
 
@@ -262,6 +274,9 @@ export class CredentialsService {
         .update(llmCredentials)
         .set({ ...REVOKED_MATERIAL, revokedBy: auth.userId })
         .where(eq(llmCredentials.id, id));
+      await tx
+        .delete(organizationLlmDefaults)
+        .where(eq(organizationLlmDefaults.teamCredentialId, id));
       await this.audit.record(tx, {
         organizationId: ctx.organizationId,
         actorId: auth.userId,
@@ -358,6 +373,7 @@ export class CredentialsService {
         scope: 'platform' as const,
         createdAt: row.createdAt.toISOString(),
         rotatedAt: iso(row.rotatedAt),
+        lastTestedAt: iso(row.lastTestedAt),
         entitledOrganizationIds: grants
           .filter((g) => g.credentialId === row.id)
           .map((g) => g.organizationId),
@@ -427,6 +443,9 @@ export class CredentialsService {
         .where(and(eq(platformLlmCredentials.id, id), eq(platformLlmCredentials.status, 'active')))
         .returning({ id: platformLlmCredentials.id });
       await tx.delete(platformLlmEntitlements).where(eq(platformLlmEntitlements.credentialId, id));
+      await tx
+        .delete(organizationLlmDefaults)
+        .where(eq(organizationLlmDefaults.platformCredentialId, id));
       return rows;
     });
     if (updated.length === 0) throw new NotFoundException('Credential not found');
@@ -462,6 +481,15 @@ export class CredentialsService {
           throw new BadRequestException('Unknown team in entitlement list');
       }
       await tx.delete(platformLlmEntitlements).where(eq(platformLlmEntitlements.credentialId, id));
+      // Teams that lose access also lose this credential as their default model.
+      await tx
+        .delete(organizationLlmDefaults)
+        .where(
+          and(
+            eq(organizationLlmDefaults.platformCredentialId, id),
+            unique.length ? notInArray(organizationLlmDefaults.organizationId, unique) : sql`true`,
+          ),
+        );
       if (unique.length) {
         await tx.insert(platformLlmEntitlements).values(
           unique.map((organizationId) => ({

@@ -18,6 +18,6 @@ import { SessionStore } from './session.store.js';
     { provide: APP_GUARD, useClass: PermissionGuard },
     { provide: APP_GUARD, useClass: RecentAuthGuard },
   ],
-  exports: [SessionStore, IdentityService],
+  exports: [SessionStore, IdentityService, OidcService],
 })
 export class AuthModule {}

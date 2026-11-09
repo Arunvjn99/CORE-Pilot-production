@@ -9,6 +9,7 @@
   --color-border: light-dark(#d9dce1, #2a2f38);
   --color-success: light-dark(#0f7a3d, #4ade80);
   --color-danger: light-dark(#b42318, #f97066);
+  --color-warning: light-dark(#8a4b00, #fbbf24);
   --color-accent: light-dark(#1f4fd1, #8fb0ff);
   --color-accent-hover: light-dark(#173ea6, #b3cbff);
   --color-accent-contrast: light-dark(#ffffff, #0f1115);

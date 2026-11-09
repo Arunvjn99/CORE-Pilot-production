@@ -56,6 +56,14 @@ export class OidcService {
     return this.configuration;
   }
 
+  /** OAuth2 client-credentials token for service-to-service calls (local/CI only; Azure uses managed identity). */
+  async clientCredentialsToken(
+    scope: string,
+  ): Promise<{ token: string; expiresInSeconds: number }> {
+    const response = await oidc.clientCredentialsGrant(await this.discover(), { scope });
+    return { token: response.access_token, expiresInSeconds: response.expires_in ?? 300 };
+  }
+
   async buildAuthorizationUrl(params: {
     state: string;
     nonce: string;

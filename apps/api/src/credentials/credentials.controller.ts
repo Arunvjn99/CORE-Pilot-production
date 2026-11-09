@@ -17,6 +17,7 @@ import {
   credentialPolicySchema,
   entitlementsSchema,
   rotateCredentialSchema,
+  setDefaultModelSchema,
 } from '@core-studio/contracts';
 import type { z } from 'zod';
 import {
@@ -28,12 +29,57 @@ import {
 import { RequirePermission, RequireRecentAuth } from '../auth/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 import { CredentialsService } from './credentials.service.js';
+import { LlmSettingsService } from './llm-settings.service.js';
 
 /** Team and personal credentials. Every mutation requires a recent re-authentication (D8). */
 @ApiTags('llm-credentials')
 @Controller({ path: 'llm', version: '1' })
 export class CredentialsController {
-  constructor(private readonly credentials: CredentialsService) {}
+  constructor(
+    private readonly credentials: CredentialsService,
+    private readonly settings: LlmSettingsService,
+  ) {}
+
+  /** Connection test via the AI runtime. Not a credential change, so no step-up; still CSRF-protected. */
+  @Post('credentials/:id/test')
+  @HttpCode(200)
+  test(
+    @Auth() auth: AuthContext,
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.settings.testTeamCredential(auth, id, correlationIdOf(req));
+  }
+
+  @Get('default-model')
+  @RequirePermission('providers:read')
+  async defaultModel(@Auth() auth: AuthContext) {
+    return { defaultModel: await this.settings.getDefault(auth) };
+  }
+
+  @Put('default-model')
+  @HttpCode(204)
+  @RequirePermission('providers:manage')
+  async setDefaultModel(
+    @Auth() auth: AuthContext,
+    @Req() req: AuthenticatedRequest,
+    @Body(new ZodPipe(setDefaultModelSchema)) body: z.infer<typeof setDefaultModelSchema>,
+  ) {
+    await this.settings.setDefault(auth, body, correlationIdOf(req));
+  }
+
+  @Delete('default-model')
+  @HttpCode(204)
+  @RequirePermission('providers:manage')
+  async clearDefaultModel(@Auth() auth: AuthContext, @Req() req: AuthenticatedRequest) {
+    await this.settings.clearDefault(auth, correlationIdOf(req));
+  }
+
+  @Get('activity')
+  @RequirePermission('providers:read')
+  activity(@Auth() auth: AuthContext) {
+    return this.settings.activity(auth);
+  }
 
   @Get('credentials')
   @RequirePermission('providers:read')
@@ -98,7 +144,20 @@ export class CredentialsController {
 @Controller({ path: 'platform/llm-credentials', version: '1' })
 @RequirePermission('platform-credentials:manage')
 export class PlatformCredentialsController {
-  constructor(private readonly credentials: CredentialsService) {}
+  constructor(
+    private readonly credentials: CredentialsService,
+    private readonly settings: LlmSettingsService,
+  ) {}
+
+  @Post(':id/test')
+  @HttpCode(200)
+  test(
+    @Auth() auth: AuthContext,
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.settings.testPlatformCredential(auth, id, correlationIdOf(req));
+  }
 
   @Get()
   list(@Auth() auth: AuthContext) {

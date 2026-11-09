@@ -43,6 +43,13 @@
       "when": 1794225910533,
       "tag": "0005_llm_credentials_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794234586125,
+      "tag": "0006_llm_gateway_defaults",
+      "breakpoints": true
     }
   ]
 }

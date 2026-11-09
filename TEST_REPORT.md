@@ -42,3 +42,15 @@ Not yet run: the Azure DevOps pipeline itself (no run has occurred). Coverage th
 | API integration (now incl. 18 credential tests)                                                            | **73/73**   |
 | AI runtime (ruff, mypy --strict, pytest -W error; vault vector/tamper/binding)                             | **18/18**   |
 | Web unit / E2E (regression)                                                                                | 13/13 · 9/9 |
+
+## Phase 2 — slice 2.4 (2026-11-09)
+
+| Suite                                                                                                                | Result                                                                          |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| TypeScript lint, typecheck, unit and build (`turbo --force`)                                                         | 12/12 tasks                                                                     |
+| API unit (incl. endpoint SSRF policy)                                                                                | **48/48**                                                                       |
+| API integration (real Postgres, Redis, mock IdP **and a real AI runtime process**; fake Ollama is the only stand-in) | **87/87** (14 new)                                                              |
+| AI runtime (ruff, format, mypy --strict, pytest)                                                                     | **69/69**                                                                       |
+| Web unit                                                                                                             | **23/23** (10 new)                                                              |
+| E2E on production images, with `E2E_OLLAMA_URL` set to the developer's local Ollama                                  | **12/12** (3 new; the Ollama test skips when the variable is unset, e.g. in CI) |
+| Live provider checks (pinned egress)                                                                                 | OpenAI, Anthropic, Gemini: `unauthorized` for fake keys; Ollama: `ok`, 4 models |

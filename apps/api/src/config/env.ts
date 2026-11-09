@@ -28,6 +28,11 @@ export const envSchema = z
     REDIS_URL: z.url({ protocol: /^rediss?$/ }),
     CORS_ALLOWED_ORIGINS: originList,
     AI_RUNTIME_URL: z.url({ protocol: /^https?$/ }),
+    /** How the API authenticates to the AI runtime (ADR-0011). Production: managed identity. */
+    AI_RUNTIME_AUTH_MODE: z
+      .enum(['client-credentials', 'managed-identity'])
+      .default('client-credentials'),
+    AI_RUNTIME_TOKEN_SCOPE: z.string().min(1).max(300).default('api://core-ai-runtime/.default'),
     RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(10_000).default(120),
     TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
     PUBLIC_APP_ORIGIN: z.url({ protocol: /^https?$/ }).transform((value) => new URL(value).origin),
@@ -135,6 +140,16 @@ export const envSchema = z
         code: 'custom',
         path: ['OIDC_ISSUER_URL'],
         message: `Production issuer must be ${entraIssuer}`,
+      });
+    }
+    if (
+      env.AI_RUNTIME_AUTH_MODE !== 'managed-identity' ||
+      !env.AI_RUNTIME_URL.startsWith('https://')
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AI_RUNTIME_AUTH_MODE'],
+        message: 'Production requires managed-identity auth and an https AI_RUNTIME_URL',
       });
     }
     if (env.API_DOCS_ENABLED) {

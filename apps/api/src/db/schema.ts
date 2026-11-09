@@ -208,6 +208,9 @@ const connectionColumns = () => ({
   rotatedAt: timestamp('rotated_at', { withTimezone: true }),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),
   revokedBy: uuid('revoked_by').references(() => users.id, { onDelete: 'set null' }),
+  /** Outcome code of the most recent connection test (AI runtime probe); never upstream text. */
+  lastTestCode: text('last_test_code'),
+  lastTestedAt: timestamp('last_tested_at', { withTimezone: true }),
 });
 
 const sealedChecks = (table: string) => [
@@ -299,6 +302,44 @@ export const platformLlmEntitlements = pgTable(
       as: 'permissive',
       for: 'select',
       using: sql`${t.organizationId} = ${currentOrganization}`,
+    }),
+  ],
+).enableRLS();
+
+/**
+ * The team's default model. References exactly one team-scope credential or one entitled
+ * company-managed credential (personal credentials can never be a team default).
+ */
+export const organizationLlmDefaults = pgTable(
+  'organization_llm_defaults',
+  {
+    organizationId: uuid('organization_id')
+      .primaryKey()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    teamCredentialId: uuid('team_credential_id').references(() => llmCredentials.id, {
+      onDelete: 'cascade',
+    }),
+    platformCredentialId: uuid('platform_credential_id').references(
+      () => platformLlmCredentials.id,
+      { onDelete: 'cascade' },
+    ),
+    model: text('model').notNull(),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      'organization_llm_defaults_one_credential',
+      sql`(team_credential_id is null) <> (platform_credential_id is null)`,
+    ),
+    index('organization_llm_defaults_platform_idx').on(t.platformCredentialId),
+    tenantIsolation('organization_llm_defaults'),
+    // Company admins clear defaults in every team when a company credential is revoked or unshared.
+    pgPolicy('organization_llm_defaults_platform_admin', {
+      as: 'permissive',
+      for: 'all',
+      using: isPlatformAdmin,
+      withCheck: isPlatformAdmin,
     }),
   ],
 ).enableRLS();

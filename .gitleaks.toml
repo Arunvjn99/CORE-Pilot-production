@@ -7,5 +7,5 @@ useDefault = true
 [allowlist]
 description = "Deliberately fake envelope test vector"
 paths = [
-  '''^packages/contracts/test-vectors/credential-envelope-v1\.json$''',
+  '''(^|/)packages/contracts/test-vectors/credential-envelope-v1\.json$''',
 ]

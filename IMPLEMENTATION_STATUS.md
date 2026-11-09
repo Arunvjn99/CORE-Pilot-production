@@ -5,7 +5,7 @@ Last updated: 2026-11-09
 | Phase                                          | Status                                                                                                                                                                        |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1 — Foundation                                 | **Implemented and verified locally.** CI pipeline written, not yet run on Azure DevOps.                                                                                       |
-| 2 — Product shell, identity, providers, canvas | **In progress.** Slices 2.1 (identity), 2.2 (product shell) and 2.3 (credential vault) done and verified locally; 2.4–2.10 pending ([plan](docs/development/phase-2-plan.md)) |
+| 2 — Product shell, identity, providers, canvas | **In progress.** Slices 2.1–2.4 (identity, shell, credential vault, provider settings) done and verified locally; 2.5–2.10 pending ([plan](docs/development/phase-2-plan.md)) |
 | 3 — LLM Gateway                                | Not started (ADR-0005 proposed)                                                                                                                                               |
 | 4 — Agent runtime                              | Not started                                                                                                                                                                   |
 | 5 — Design system & Knowledge                  | Not started. Blocked on B1 (CORE React package source)                                                                                                                        |
@@ -68,3 +68,14 @@ Authentication (Entra ID) — the API currently exposes only health endpoints. S
 | Company-managed credentials and team entitlements                                            | Done                                                     | Integration tests                                                                 |
 | Secret hygiene: never in responses, audit or logs                                            | Done                                                     | Log-capture and audit-scan tests                                                  |
 | UI for provider credentials                                                                  | Not in this slice                                        | Slice 2.4 (with model discovery and the step-up prompt)                           |
+
+## Phase 2 — slice 2.4 AI provider settings (2026-11-09)
+
+| Module                                                                            | State        | Evidence                                                                                                                         |
+| --------------------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Save-time endpoint SSRF policy (API)                                              | Done         | 22 unit cases                                                                                                                    |
+| Runtime gateway: service-token auth, pinned egress, provider probes (5 providers) | Done         | 51 new pytest cases; live check: OpenAI/Anthropic/Gemini reject fake keys, local Ollama lists models                             |
+| API: test (team/company), default model, activity feed, migration 0006            | Done         | 14 integration tests against a **real** AI runtime process and mock IdP tokens                                                   |
+| Web: provider settings UI (all requirements of slice 2.4)                         | Done         | 10 unit + 3 E2E on production images (real step-up, real OpenAI call, real Ollama); screenshots in `docs/screenshots/slice-2.4/` |
+| Managed-identity service auth in Azure                                            | Config-ready | Needs Azure (same validation path as local)                                                                                      |
+| Azure OpenAI deployment-name verification                                         | Not done     | Listing proves key/resource only (ADR-0011)                                                                                      |

@@ -1,6 +1,19 @@
 # Changelog
 
-## [Unreleased] — Phase 2, slice 2.3 Credential vault (2026-11-09)
+## [Unreleased] — Phase 2, slice 2.4 AI provider settings (2026-11-09)
+
+### Added
+
+- Settings → AI providers: team, personal and company-managed credentials with add (step-up), connection test, rotate, revoke, masked keys, personal-key policy switch, company team-access dialog, default model selection and an activity feed. Responsive and WCAG 2.2 AA (axe) on desktop and mobile.
+- AI runtime gateway: `POST /internal/v1/providers/probe` with service-token auth and SSRF-safe pinned egress; probes for OpenAI, Anthropic, Gemini, Azure OpenAI and Ollama.
+- API: credential test endpoints (team and company), default model (`GET/PUT/DELETE /llm/default-model`), activity feed (`GET /llm/activity`); migration 0006 (`organization_llm_defaults`, last-test columns).
+- Save-time endpoint SSRF policy and `LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS`; ADR-0011; ops docs for Key Vault validation, KEK rotation and cleanup.
+
+### Changed
+
+- gitleaks allowlist narrowed to the single fake test vector.
+
+## Phase 2, slice 2.3 Credential vault (2026-11-09)
 
 ### Added
 

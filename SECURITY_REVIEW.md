@@ -107,3 +107,23 @@
 | R12 | Key Vault wrap/unwrap is not exercised against real Azure yet | Phase 7 infra + smoke test |
 | R13 | KEK version rotation needs a re-seal job                      | Phase 7                    |
 | R14 | Personal credentials of removed members persist until revoked | Offboarding job, Phase 7   |
+
+## Phase 2 — slice 2.4 (2026-11-09)
+
+- **SSRF:** save-time URL policy in the API, plus connect-time enforcement in the runtime: resolve once, block non-global addresses, pin the connection with SNI (defeats DNS rebinding), no redirects, no proxies, size and time caps. Both sides share one address-case file. See `docs/security/provider-endpoint-ssrf.md`.
+- **Service auth:** API → runtime calls carry IdP-issued JWTs (managed identity in Azure, enforced by production config). The runtime rejects missing, mis-signed, wrong-audience, wrong-issuer, expired and non-allow-listed tokens (tests for each).
+- **No key exposure:** the API sends only the sealed envelope; the runtime returns fixed codes and model ids. Tests prove upstream error bodies and secrets never reach responses, the DOM or the activity feed. The UI key field is write-only (`type=password`, autocomplete off) and cleared on close and after saving.
+- **Authorization:** testing requires `providers:manage` (team and entitled company credentials) or ownership (personal). Default model needs `providers:manage` and never accepts personal credentials. Activity hides other people's personal-credential events.
+- **gitleaks:** allowlist narrowed to one fixture; a scan with no allowlist showed nothing else.
+- **Scans:**
+  - Trivy with `--ignore-unfixed` (the CI gate): api 0, web 0, ai-runtime 0.
+  - Without that flag the ai-runtime image shows 47 Debian base-image CVEs with **no fix available**, published since slice 2.3. They will be picked up by the next base-image refresh.
+  - `pnpm audit --prod`: 0. `pip-audit`: 0.
+
+### New risks
+
+| ID  | Risk                                                                                                                         | Status                                                  |
+| --- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| R15 | Managed-identity runtime auth not exercised in Azure                                                                         | Same JWT validation as local; Azure smoke test with R12 |
+| R16 | Endpoint is not bound into the envelope AAD; a compromised API could aim a stored key at its own endpoint (for Azure/Ollama) | Envelope v2 (bind endpoint), Phase 7                    |
+| R17 | Unfixed Debian CVEs in the python slim base                                                                                  | Track; rebuild when fixes publish                       |

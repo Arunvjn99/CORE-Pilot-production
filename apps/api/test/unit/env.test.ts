@@ -49,6 +49,8 @@ describe('loadConfig', () => {
         LOCAL_KEK: undefined,
         CREDENTIAL_KEK_PROVIDER: 'azure-key-vault',
         AZURE_KEY_VAULT_KEY_ID: 'https://vault.vault.azure.net/keys/llm-kek',
+        AI_RUNTIME_URL: 'https://ai-runtime.internal.example.com',
+        AI_RUNTIME_AUTH_MODE: 'managed-identity',
       }),
     ).not.toThrow();
   });

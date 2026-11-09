@@ -105,6 +105,8 @@ export const credentialSummarySchema = z.object({
   displayHint: z.string().nullable(),
   createdAt: z.iso.datetime({ offset: true }),
   rotatedAt: z.iso.datetime({ offset: true }).nullable(),
+  lastTestCode: z.string().nullable(),
+  lastTestedAt: z.iso.datetime({ offset: true }).nullable(),
 });
 export type CredentialSummary = z.infer<typeof credentialSummarySchema>;
 
@@ -112,3 +114,67 @@ export const credentialPolicySchema = z.object({ allowPersonalCredentials: z.boo
 export type CredentialPolicy = z.infer<typeof credentialPolicySchema>;
 
 export const entitlementsSchema = z.object({ organizationIds: z.array(z.uuid()).max(500) });
+
+/** Fixed outcome codes from the AI runtime probe. Upstream provider text is never relayed. */
+export const probeCodeSchema = z.enum([
+  'ok',
+  'unauthorized',
+  'not_found',
+  'rate_limited',
+  'provider_error',
+  'unreachable',
+  'timeout',
+  'endpoint_blocked',
+  'credential_unavailable',
+  'invalid_response',
+  'runtime_unavailable',
+]);
+export type ProbeCode = z.infer<typeof probeCodeSchema>;
+
+export const credentialTestResultSchema = z.object({
+  credentialId: z.uuid(),
+  code: probeCodeSchema,
+  message: z.string(),
+  latencyMs: z.number().int().min(0),
+  models: z.array(z.string()),
+  testedAt: z.iso.datetime({ offset: true }),
+});
+export type CredentialTestResult = z.infer<typeof credentialTestResultSchema>;
+
+export const modelIdSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(200)
+  .regex(/^[\w.:/@-]+$/, 'Unsupported characters in model id');
+
+export const setDefaultModelSchema = z.object({ credentialId: z.uuid(), model: modelIdSchema });
+export type SetDefaultModel = z.infer<typeof setDefaultModelSchema>;
+
+export const defaultModelSchema = z
+  .object({
+    credentialId: z.uuid(),
+    credentialScope: z.enum(['organization', 'platform']),
+    credentialLabel: z.string(),
+    provider: llmProviderSchema,
+    model: z.string(),
+    updatedAt: z.iso.datetime({ offset: true }),
+  })
+  .nullable();
+export type DefaultModel = z.infer<typeof defaultModelSchema>;
+/** Wrapped so an unset default is an explicit `null`, not an empty response body. */
+export const defaultModelResponseSchema = z.object({ defaultModel: defaultModelSchema });
+export type DefaultModelResponse = z.infer<typeof defaultModelResponseSchema>;
+
+export const llmActivitySchema = z.object({
+  id: z.uuid(),
+  action: z.string(),
+  actorName: z.string().nullable(),
+  targetId: z.string().nullable(),
+  provider: llmProviderSchema.nullable(),
+  scope: z.string().nullable(),
+  label: z.string().nullable(),
+  outcome: z.string().nullable(),
+  occurredAt: z.iso.datetime({ offset: true }),
+});
+export type LlmActivity = z.infer<typeof llmActivitySchema>;

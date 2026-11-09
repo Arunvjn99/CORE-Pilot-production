@@ -11,18 +11,19 @@ dependencies = [
     { name = "azure-keyvault-keys" },
     { name = "cryptography" },
     { name = "fastapi" },
+    { name = "httpx2" },
     { name = "opentelemetry-exporter-otlp-proto-http" },
     { name = "opentelemetry-instrumentation-fastapi" },
     { name = "opentelemetry-sdk" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "pyjwt", extra = ["crypto"] },
     { name = "structlog" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx2" },
     { name = "mypy" },
     { name = "pip-audit" },
     { name = "pytest" },
@@ -35,18 +36,19 @@ requires-dist = [
     { name = "azure-keyvault-keys", specifier = ">=4.11.3" },
     { name = "cryptography", specifier = ">=50.0.2" },
     { name = "fastapi", specifier = "==0.162.2" },
+    { name = "httpx2", specifier = "==2.16.0" },
     { name = "opentelemetry-exporter-otlp-proto-http", specifier = ">=1.45.2" },
     { name = "opentelemetry-instrumentation-fastapi", specifier = ">=0.66b2" },
     { name = "opentelemetry-sdk", specifier = "==1.45.2" },
     { name = "pydantic", specifier = "==2.14.3" },
     { name = "pydantic-settings", specifier = "==2.16.2" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.15.1" },
     { name = "structlog", specifier = "==26.1.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.54.0" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx2", specifier = ">=2.16.0" },
     { name = "mypy", specifier = "==2.4.1" },
     { name = "pip-audit", specifier = ">=2.10.1" },
     { name = "pytest", specifier = "==9.2.0" },
