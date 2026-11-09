@@ -1,0 +1,101 @@
+# Local environment that runs the SAME images CI builds and Azure runs. All config comes from env (.env).
+name: core-studio
+
+x-hardened: &hardened
+  read_only: true
+  security_opt: ['no-new-privileges:true']
+  cap_drop: ['ALL']
+  tmpfs: ['/tmp']
+
+services:
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_DB: core_studio
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:?set in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?set in .env}
+      CORE_APP_DB_PASSWORD: ${CORE_APP_DB_PASSWORD:?set in .env}
+    ports: ['127.0.0.1:5432:5432']
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/docker/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d core_studio']
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:8.2-alpine
+    command:
+      [
+        'redis-server',
+        '--requirepass',
+        '${REDIS_PASSWORD:?set in .env}',
+        '--save',
+        '',
+        '--appendonly',
+        'no',
+      ]
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    ports: ['127.0.0.1:6379:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      retries: 20
+
+  migrate:
+    image: core-studio/api:${IMAGE_TAG:-local}
+    build: { context: ., dockerfile: infrastructure/docker/api.Dockerfile }
+    <<: *hardened
+    command: ['node', 'dist/db/migrate.js']
+    environment:
+      MIGRATION_DATABASE_URL: postgres://${POSTGRES_ADMIN_USER}:${POSTGRES_ADMIN_PASSWORD}@postgres:5432/core_studio
+    depends_on: { postgres: { condition: service_healthy } }
+    restart: 'no'
+
+  api:
+    image: core-studio/api:${IMAGE_TAG:-local}
+    <<: *hardened
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      SERVICE_VERSION: ${IMAGE_TAG:-local}
+      DATABASE_URL: postgres://core_app:${CORE_APP_DB_PASSWORD}@postgres:5432/core_studio
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?set in .env}
+      AI_RUNTIME_URL: http://ai-runtime:8000
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    ports: ['127.0.0.1:${API_HOST_PORT:-3000}:3000']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  ai-runtime:
+    image: core-studio/ai-runtime:${IMAGE_TAG:-local}
+    build:
+      {
+        context: services/ai-runtime,
+        dockerfile: ../../infrastructure/docker/ai-runtime.Dockerfile,
+      }
+    <<: *hardened
+    environment:
+      APP_ENV: ${NODE_ENV:-development}
+      SERVICE_VERSION: ${IMAGE_TAG:-local}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    # Internal only: reachable from api on the compose network, not published to the host.
+    expose: ['8000']
+
+  web:
+    image: core-studio/web:${IMAGE_TAG:-local}
+    build: { context: ., dockerfile: infrastructure/docker/web.Dockerfile }
+    <<: *hardened
+    # nginx renders its config from a template at start; give it writable, non-persistent paths.
+    tmpfs: ['/tmp:uid=101,gid=101', '/etc/nginx/conf.d:uid=101,gid=101']
+    environment:
+      API_UPSTREAM: http://api:3000
+    ports: ['127.0.0.1:${WEB_HOST_PORT:-8080}:8080']
+    depends_on: [api]
+
+volumes:
+  pgdata:

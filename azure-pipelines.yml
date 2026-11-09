@@ -1,0 +1,100 @@
+# CI only: build, test, scan and publish image artifacts. No deployment stage (deployment rights are held elsewhere).
+# The images built and tested here are exactly the ones run locally via docker-compose and intended for Azure Container Apps.
+trigger:
+  branches: { include: [main] }
+pr:
+  branches: { include: [main] }
+
+pool:
+  vmImage: ubuntu-24.04
+
+variables:
+  NODE_VERSION: '24.x'
+  IMAGE_TAG: '$(Build.SourceVersion)'
+  COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+  CI: 'true'
+
+stages:
+  - stage: Validate
+    jobs:
+      - job: typescript
+        displayName: TypeScript lint, typecheck, unit tests, build
+        steps:
+          - task: UseNode@1
+            inputs: { version: $(NODE_VERSION) }
+          - script: corepack enable && pnpm install --frozen-lockfile
+            displayName: Install (frozen lockfile)
+          - script: pnpm format:check && pnpm turbo run lint typecheck test build
+            displayName: Lint, typecheck, unit tests, build
+          - script: pnpm audit --prod --audit-level high
+            displayName: pnpm audit (fail on high/critical in production deps)
+
+      - job: python
+        displayName: Python lint, types, tests, audit
+        steps:
+          - script: curl -LsSf https://astral.sh/uv/0.11.7/install.sh | sh
+            displayName: Install uv (pinned)
+          - script: |
+              export PATH="$HOME/.local/bin:$PATH"
+              cd services/ai-runtime
+              uv sync --frozen
+              uv run ruff check . && uv run ruff format --check .
+              uv run mypy src tests
+              uv run pytest -W error --junitxml=$(Build.ArtifactStagingDirectory)/pytest.xml
+              uv export --frozen --no-dev --no-hashes --no-emit-project -o /tmp/req.txt && uv run pip-audit -r /tmp/req.txt --strict
+            displayName: ruff, mypy --strict, pytest, pip-audit
+
+      - job: secrets
+        displayName: Secret scan
+        steps:
+          - checkout: self
+            fetchDepth: 0
+          - script: docker run --rm -v "$(Build.SourcesDirectory):/repo" zricethezav/gitleaks:v8.28.0 git /repo --redact --exit-code 1
+            displayName: gitleaks (full history)
+
+  - stage: Integrate
+    dependsOn: Validate
+    jobs:
+      - job: stack
+        displayName: Build images, integration + E2E on the composed stack, scan images
+        steps:
+          - task: UseNode@1
+            inputs: { version: $(NODE_VERSION) }
+          - script: corepack enable && pnpm install --frozen-lockfile
+            displayName: Install
+          - script: ./scripts/init-local-env.sh
+            displayName: Generate ephemeral CI secrets (.env, never published)
+          - script: docker compose build
+            displayName: Build production images
+          - script: docker compose up -d --wait
+            displayName: Start stack (migrations run as a job)
+          - script: pnpm --filter @core-studio/contracts build && ./scripts/test-integration.sh
+            displayName: API integration tests (Postgres RLS, Redis, HTTP hardening)
+          - script: |
+              pnpm --filter @core-studio/web exec playwright install --with-deps chromium
+              E2E_BASE_URL=http://localhost:8080 pnpm --filter @core-studio/web test:e2e
+            displayName: E2E + accessibility (axe, WCAG 2.2 AA)
+          - script: |
+              for image in api ai-runtime web; do
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.76.2 image --skip-version-check \
+                  --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
+                  core-studio/${image}:$(IMAGE_TAG)
+              done
+            displayName: Trivy image scan (fail on fixable high/critical)
+          - script: docker compose logs --no-color > $(Build.ArtifactStagingDirectory)/compose.log
+            condition: always()
+            displayName: Collect logs
+          - script: docker compose down -v
+            condition: always()
+            displayName: Tear down
+          - task: PublishTestResults@2
+            condition: always()
+            inputs:
+              testResultsFormat: JUnit
+              testResultsFiles: '**/test-results/junit.xml'
+          - script: |
+              for image in api ai-runtime web; do docker save core-studio/${image}:$(IMAGE_TAG) | gzip > $(Build.ArtifactStagingDirectory)/$image-image.tar.gz; done
+            displayName: Export tested images
+          - publish: $(Build.ArtifactStagingDirectory)
+            artifact: build-output
+            displayName: Publish artifacts (images + reports) for the release team

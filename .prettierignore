@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+**/dist
+**/coverage
+**/drizzle/meta
+services/
+docs/01-poc-audit/
+docs/02-reference-analysis.md
