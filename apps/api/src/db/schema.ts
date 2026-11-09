@@ -1,8 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   check,
   customType,
+  foreignKey,
   index,
   integer,
   smallint,
@@ -387,6 +389,8 @@ export const projectPages = pgTable(
     name: text('name').notNull(),
     route: text('route').notNull(),
     position: integer('position').notNull(),
+    /** Source file of the page in the project repository (null until the repository exists). */
+    filePath: text('file_path'),
     createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -395,5 +399,60 @@ export const projectPages = pgTable(
     uniqueIndex('project_pages_route_idx').on(t.projectId, t.route),
     index('project_pages_project_idx').on(t.projectId, t.position),
     tenantIsolation('project_pages'),
+  ],
+).enableRLS();
+
+export const repositoryStatus = pgEnum('repository_status', ['initializing', 'ready', 'failed']);
+export const checkpointKind = pgEnum('checkpoint_kind', ['create', 'manual', 'restore', 'safety']);
+
+/** One git repository per project (PROJECT_REPOSITORY_DESIGN.md). The repository is the source of truth. */
+export const projectRepositories = pgTable(
+  'project_repositories',
+  {
+    projectId: uuid('project_id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    status: repositoryStatus('status').notNull(),
+    templateVersion: text('template_version').notNull(),
+    defaultBranch: text('default_branch').notNull().default('main'),
+    headCommit: text('head_commit'),
+    workingRevision: bigint('working_revision', { mode: 'number' }).notNull().default(0),
+    lastErrorCode: text('last_error_code'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.projectId, t.organizationId],
+      foreignColumns: [projects.id, projects.organizationId],
+      name: 'project_repositories_project_fk',
+    }).onDelete('cascade'),
+    tenantIsolation('project_repositories'),
+  ],
+).enableRLS();
+
+/** Git checkpoints (commits on main). Append-only: restore creates a new checkpoint. */
+export const projectCheckpoints = pgTable(
+  'project_checkpoints',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    projectId: uuid('project_id').notNull(),
+    organizationId: uuid('organization_id').notNull(),
+    commitSha: text('commit_sha').notNull(),
+    message: text('message').notNull(),
+    kind: checkpointKind('kind').notNull(),
+    revision: bigint('revision', { mode: 'number' }).notNull(),
+    restoredFrom: uuid('restored_from'),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.projectId, t.organizationId],
+      foreignColumns: [projects.id, projects.organizationId],
+      name: 'project_checkpoints_project_fk',
+    }).onDelete('cascade'),
+    uniqueIndex('project_checkpoints_commit_idx').on(t.projectId, t.commitSha),
+    index('project_checkpoints_project_time_idx').on(t.projectId, t.createdAt),
+    tenantIsolation('project_checkpoints'),
   ],
 ).enableRLS();

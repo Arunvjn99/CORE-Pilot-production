@@ -349,6 +349,10 @@ describe('secret hygiene', () => {
   it('never writes any secret to logs', () => {
     expect(logs.length).toBeGreaterThan(0);
     for (const secret of ALL_SECRETS) expect(logs).not.toContain(secret);
+    // OAuth callback codes and state are one-time secrets: logged requests carry them redacted.
+    expect(logs).toContain('/api/v1/auth/callback?code=%5BREDACTED%5D');
+    expect(logs).not.toMatch(/callback\?code=(?!%5BREDACTED%5D)/);
+    expect(logs).not.toMatch(/"code":"(?!\[REDACTED\])[A-Za-z0-9_-]{20,}"/);
   });
 
   it('the runtime role cannot delete credentials or bypass destruction on revoke', async () => {

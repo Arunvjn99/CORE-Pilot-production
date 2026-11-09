@@ -62,6 +62,8 @@ export const pageSchema = z.object({
   name: z.string(),
   route: z.string(),
   position: z.number().int(),
+  /** Source file in the project repository, e.g. src/pages/pricing/PricingPage.tsx. */
+  filePath: z.string().nullable(),
   createdAt: z.iso.datetime({ offset: true }),
   updatedAt: z.iso.datetime({ offset: true }),
 });
@@ -93,3 +95,36 @@ export function routeFromName(pageName: string): string {
     .replace(/-+$/g, '');
   return slug ? `/${slug}` : '/';
 }
+
+export const projectRepositorySchema = z.object({
+  status: z.enum(['initializing', 'ready', 'failed']),
+  templateVersion: z.string(),
+  workingRevision: z.number().int(),
+  headCommit: z.string().nullable(),
+  /** True when the working tree has changes since the last checkpoint. */
+  dirty: z.boolean(),
+});
+export type ProjectRepository = z.infer<typeof projectRepositorySchema>;
+
+export const checkpointSchema = z.object({
+  id: z.uuid(),
+  commitSha: z.string().regex(/^[0-9a-f]{40}$/),
+  message: z.string(),
+  kind: z.enum(['create', 'manual', 'restore', 'safety']),
+  revision: z.number().int(),
+  restoredFrom: z.uuid().nullable(),
+  authorName: z.string().nullable(),
+  createdAt: z.iso.datetime({ offset: true }),
+});
+export type Checkpoint = z.infer<typeof checkpointSchema>;
+
+export const createCheckpointSchema = z.object({
+  message: z.string().trim().min(1, 'Describe the checkpoint').max(200),
+});
+export const restoreCheckpointSchema = z.object({
+  /** Save uncommitted work as a checkpoint before restoring (default). */
+  safetyCheckpoint: z.boolean().default(true),
+});
+export const checkpointListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});

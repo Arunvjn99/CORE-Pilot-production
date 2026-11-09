@@ -6,7 +6,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  Checkpoint,
   CreatePage,
+  ProjectRepository,
   CreateProject,
   Project,
   ProjectPage,
@@ -14,8 +16,11 @@ import type {
   UpdatePage,
   UpdateProject,
 } from '@core-studio/contracts';
-import { and, asc, count, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
+import { pageFilePath } from '@core-studio/project-template';
 import { AuditService } from '../audit/audit.service.js';
+import { type RepoActor, RepositoriesService } from '../repositories/repositories.service.js';
 import type { AuthContext } from '../auth/auth-context.js';
 import { DATABASE } from '../db/database.module.js';
 import { type Database, withDbContext } from '../db/database.js';
@@ -76,6 +81,7 @@ const toPage = (row: typeof projectPages.$inferSelect): ProjectPage => ({
   name: row.name,
   route: row.route,
   position: row.position,
+  filePath: row.filePath,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
 });
@@ -86,6 +92,7 @@ export class ProjectsService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly audit: AuditService,
+    private readonly repositories: RepositoriesService,
   ) {}
 
   private ctx(auth: AuthContext) {
@@ -174,14 +181,10 @@ export class ProjectsService {
           })
           .returning({ id: projects.id });
         if (!row) throw new Error('Insert returned no row');
-        await tx.insert(projectPages).values({
-          projectId: row.id,
-          organizationId,
-          name: 'Home',
-          route: '/',
-          position: 0,
-          createdBy: auth.userId,
-        });
+        await this.repositories.lock(tx, row.id);
+        await this.repositories.initialize(tx, this.actor(auth, organizationId), row.id, [
+          { id: randomUUID(), name: 'Home', route: '/' },
+        ]);
         await this.audit.record(tx, {
           organizationId,
           actorId: auth.userId,
@@ -255,11 +258,32 @@ export class ProjectsService {
     }
   }
 
-  // ---------- pages ----------
+  // ---------- pages (repository-backed: PROJECT_REPOSITORY_DESIGN.md §4) ----------
+
+  /** Row lock on the project, then the per-project repository lock; same order everywhere. */
+  private async lockRepository(tx: Database, projectId: string, requireActive: boolean) {
+    if (requireActive) await this.lockActiveProject(tx, projectId);
+    else await this.loadProject(tx, projectId);
+    await this.repositories.lock(tx, projectId);
+  }
+
+  private actor(auth: AuthContext, organizationId: string): RepoActor {
+    return { userId: auth.userId, organizationId };
+  }
+
+  private async pageRow(tx: Database, projectId: string, pageId: string): Promise<ProjectPage> {
+    const [row] = await tx
+      .select()
+      .from(projectPages)
+      .where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, projectId)));
+    if (!row) throw new NotFoundException('Page not found');
+    return toPage(row);
+  }
 
   listPages(auth: AuthContext, projectId: string): Promise<ProjectPage[]> {
-    return this.run(auth, async (tx) => {
-      await this.loadProject(tx, projectId);
+    return this.run(auth, async (tx, organizationId) => {
+      await this.lockRepository(tx, projectId, false);
+      await this.repositories.ensureReady(tx, this.actor(auth, organizationId), projectId);
       const rows = await tx
         .select()
         .from(projectPages)
@@ -269,100 +293,72 @@ export class ProjectsService {
     });
   }
 
-  async createPage(
+  createPage(
     auth: AuthContext,
     projectId: string,
     input: CreatePage,
     correlationId: string,
   ): Promise<ProjectPage> {
-    try {
-      return await this.run(auth, async (tx, organizationId) => {
-        await this.lockActiveProject(tx, projectId);
-        const [max] = await tx
-          .select({ value: sql<number | null>`max(${projectPages.position})` })
-          .from(projectPages)
-          .where(eq(projectPages.projectId, projectId));
-        const [row] = await tx
-          .insert(projectPages)
-          .values({
-            projectId,
-            organizationId,
-            name: input.name,
-            route: input.route,
-            position: (max?.value ?? -1) + 1,
-            createdBy: auth.userId,
-          })
-          .returning();
-        if (!row) throw new Error('Insert returned no row');
-        await this.touch(tx, projectId);
-        await this.audit.record(tx, {
-          organizationId,
-          actorId: auth.userId,
-          action: 'page.created',
-          targetType: 'project_page',
-          targetId: row.id,
-          correlationId,
-          metadata: { projectId, name: input.name, route: input.route },
-        });
-        return toPage(row);
+    return this.run(auth, async (tx, organizationId) => {
+      await this.lockRepository(tx, projectId, true);
+      const page = await this.repositories.createPage(
+        tx,
+        this.actor(auth, organizationId),
+        projectId,
+        input,
+      );
+      await tx
+        .update(projectPages)
+        .set({ createdBy: auth.userId })
+        .where(eq(projectPages.id, page.id));
+      await this.touch(tx, projectId);
+      await this.audit.record(tx, {
+        organizationId,
+        actorId: auth.userId,
+        action: 'page.created',
+        targetType: 'project_page',
+        targetId: page.id,
+        correlationId,
+        metadata: { projectId, name: input.name, route: input.route, file: pageFilePath(page) },
       });
-    } catch (error) {
-      if (uniqueViolation(error) !== null)
-        throw conflict('ROUTE_TAKEN', 'Another page in this project already uses this route.');
-      throw error;
-    }
+      return this.pageRow(tx, projectId, page.id);
+    });
   }
 
-  async updatePage(
+  updatePage(
     auth: AuthContext,
     projectId: string,
     pageId: string,
     input: UpdatePage,
     correlationId: string,
   ): Promise<ProjectPage> {
-    try {
-      return await this.run(auth, async (tx, organizationId) => {
-        await this.lockActiveProject(tx, projectId);
-        const [current] = await tx
-          .select()
-          .from(projectPages)
-          .where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, projectId)))
-          .for('update');
-        if (!current) throw new NotFoundException('Page not found');
-        if (current.updatedAt.toISOString() !== new Date(input.expectedUpdatedAt).toISOString())
-          throw stale();
-        const [row] = await tx
-          .update(projectPages)
-          .set({
-            ...(input.name !== undefined ? { name: input.name } : {}),
-            ...(input.route !== undefined ? { route: input.route } : {}),
-            ...(input.position !== undefined ? { position: input.position } : {}),
-            updatedAt: sql`now()`,
-          })
-          .where(eq(projectPages.id, pageId))
-          .returning();
-        if (!row) throw new NotFoundException('Page not found');
-        await this.touch(tx, projectId);
-        await this.audit.record(tx, {
-          organizationId,
-          actorId: auth.userId,
-          action: 'page.updated',
-          targetType: 'project_page',
-          targetId: pageId,
-          correlationId,
-          metadata: {
-            projectId,
-            ...(input.name !== undefined ? { name: input.name } : {}),
-            ...(input.route !== undefined ? { route: input.route } : {}),
-          },
-        });
-        return toPage(row);
+    return this.run(auth, async (tx, organizationId) => {
+      await this.lockRepository(tx, projectId, true);
+      const actor = this.actor(auth, organizationId);
+      await this.repositories.ensureReady(tx, actor, projectId);
+      const current = await this.pageRow(tx, projectId, pageId);
+      if (current.updatedAt !== new Date(input.expectedUpdatedAt).toISOString()) throw stale();
+      await this.repositories.updatePage(tx, actor, projectId, pageId, {
+        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(input.route !== undefined ? { route: input.route } : {}),
+        ...(input.position !== undefined ? { position: input.position } : {}),
       });
-    } catch (error) {
-      if (uniqueViolation(error) !== null)
-        throw conflict('ROUTE_TAKEN', 'Another page in this project already uses this route.');
-      throw error;
-    }
+      await this.touch(tx, projectId);
+      await this.audit.record(tx, {
+        organizationId,
+        actorId: auth.userId,
+        action: 'page.updated',
+        targetType: 'project_page',
+        targetId: pageId,
+        correlationId,
+        metadata: {
+          projectId,
+          ...(input.name !== undefined ? { name: input.name } : {}),
+          ...(input.route !== undefined ? { route: input.route } : {}),
+        },
+      });
+      return this.pageRow(tx, projectId, pageId);
+    });
   }
 
   deletePage(
@@ -372,18 +368,13 @@ export class ProjectsService {
     correlationId: string,
   ): Promise<void> {
     return this.run(auth, async (tx, organizationId) => {
-      await this.lockActiveProject(tx, projectId);
-      const [total] = await tx
-        .select({ value: count() })
-        .from(projectPages)
-        .where(eq(projectPages.projectId, projectId));
-      const [deleted] = await tx
-        .delete(projectPages)
-        .where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, projectId)))
-        .returning({ name: projectPages.name, route: projectPages.route });
-      if (!deleted) throw new NotFoundException('Page not found');
-      if ((total?.value ?? 0) <= 1)
-        throw conflict('LAST_PAGE', 'A project needs at least one page.');
+      await this.lockRepository(tx, projectId, true);
+      const deleted = await this.repositories.deletePage(
+        tx,
+        this.actor(auth, organizationId),
+        projectId,
+        pageId,
+      );
       await this.touch(tx, projectId);
       await this.audit.record(tx, {
         organizationId,
@@ -392,8 +383,95 @@ export class ProjectsService {
         targetType: 'project_page',
         targetId: pageId,
         correlationId,
-        metadata: { projectId, name: deleted.name, route: deleted.route },
+        metadata: {
+          projectId,
+          name: deleted.name,
+          route: deleted.route,
+          file: pageFilePath(deleted),
+        },
       });
     });
+  }
+
+  // ---------- repository and checkpoints ----------
+
+  repository(auth: AuthContext, projectId: string): Promise<ProjectRepository> {
+    return this.run(auth, async (tx, organizationId) => {
+      await this.lockRepository(tx, projectId, false);
+      return this.repositories.describe(tx, this.actor(auth, organizationId), projectId);
+    });
+  }
+
+  listCheckpoints(auth: AuthContext, projectId: string, limit: number): Promise<Checkpoint[]> {
+    return this.run(auth, async (tx) => {
+      await this.loadProject(tx, projectId);
+      const rows = await this.repositories.listCheckpoints(tx, projectId, limit);
+      return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
+    });
+  }
+
+  createCheckpoint(
+    auth: AuthContext,
+    projectId: string,
+    message: string,
+    correlationId: string,
+  ): Promise<Checkpoint> {
+    return this.run(auth, async (tx, organizationId) => {
+      await this.lockRepository(tx, projectId, true);
+      const row = await this.repositories.checkpoint(
+        tx,
+        this.actor(auth, organizationId),
+        projectId,
+        message,
+        'manual',
+      );
+      await this.audit.record(tx, {
+        organizationId,
+        actorId: auth.userId,
+        action: 'checkpoint.created',
+        targetType: 'project',
+        targetId: projectId,
+        correlationId,
+        metadata: { checkpointId: row.id, commit: row.commitSha },
+      });
+      return this.checkpointById(tx, projectId, row.id);
+    });
+  }
+
+  restoreCheckpoint(
+    auth: AuthContext,
+    projectId: string,
+    checkpointId: string,
+    safetyCheckpoint: boolean,
+    correlationId: string,
+  ): Promise<Checkpoint> {
+    return this.run(auth, async (tx, organizationId) => {
+      await this.lockRepository(tx, projectId, true);
+      const row = await this.repositories.restore(
+        tx,
+        this.actor(auth, organizationId),
+        projectId,
+        checkpointId,
+        { safetyCheckpoint },
+      );
+      await this.touch(tx, projectId);
+      await this.audit.record(tx, {
+        organizationId,
+        actorId: auth.userId,
+        action: 'checkpoint.restored',
+        targetType: 'project',
+        targetId: projectId,
+        correlationId,
+        metadata: { restoredFrom: checkpointId, checkpointId: row.id, commit: row.commitSha },
+      });
+      return this.checkpointById(tx, projectId, row.id);
+    });
+  }
+
+  private async checkpointById(tx: Database, projectId: string, id: string): Promise<Checkpoint> {
+    const rows = await this.repositories.listCheckpoints(tx, projectId, 200);
+    const row = rows.find((r) => r.id === id);
+    if (!row) throw new NotFoundException('Checkpoint not found');
+    return { ...row, createdAt: row.createdAt.toISOString() };
   }
 }

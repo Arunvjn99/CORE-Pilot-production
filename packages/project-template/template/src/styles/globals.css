@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+/* Design tokens. The CORE design system replaces these when it is registered (Phase 5). */
+@theme {
+  --color-brand: #1f4fd1;
+}

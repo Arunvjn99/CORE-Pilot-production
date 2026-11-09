@@ -5,3 +5,4 @@ pnpm-lock.yaml
 services/
 docs/01-poc-audit/
 docs/02-reference-analysis.md
+**/.generated

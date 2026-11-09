@@ -3,6 +3,7 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 import { resolveCorrelationId } from './common/correlation-id.js';
+import { scrubRequest } from './common/log-scrub.js';
 import { HttpExceptionFilter } from './common/http-exception.filter.js';
 import { CORRELATION_ID_HEADER } from '@core-studio/contracts';
 import { ConfigModule } from './config/config.module.js';
@@ -38,6 +39,8 @@ export class AppModule {
                 return id;
               },
               customProps: () => ({ service: 'api' }),
+              // OAuth callback codes/state must never reach logs (one-time, but still secrets).
+              serializers: { req: scrubRequest },
               // Defence in depth: never log credentials even if a future route receives them.
               redact: {
                 paths: [

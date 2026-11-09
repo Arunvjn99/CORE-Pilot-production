@@ -33,6 +33,7 @@ const page = (id: string, name: string, route: string, position: number): Projec
   name,
   route,
   position,
+  filePath: null,
   createdAt: now,
   updatedAt: now,
 });

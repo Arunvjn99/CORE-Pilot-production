@@ -57,6 +57,13 @@
       "when": 1794236207847,
       "tag": "0007_projects_and_pages",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794238263255,
+      "tag": "0008_project_repositories",
+      "breakpoints": true
     }
   ]
 }

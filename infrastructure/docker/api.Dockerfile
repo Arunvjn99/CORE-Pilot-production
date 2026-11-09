@@ -11,13 +11,17 @@ COPY . .
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --offline --filter @core-studio/api... \
  && pnpm --filter @core-studio/contracts run build \
+ && pnpm --filter @core-studio/project-template run build \
  && pnpm --filter @core-studio/api run build \
  && pnpm --filter @core-studio/api deploy --prod --legacy /out
 
 FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production
 # Patch OS packages and remove package-manager tooling the runtime never uses (reduces attack surface and CVEs).
+# git: project repositories (PROJECT_REPOSITORY_DESIGN.md §3, hardened invocation in src/repositories/git.ts).
 RUN apk upgrade --no-cache \
+ && apk add --no-cache git \
+ && mkdir -p /data/repos /data/bundles && chown node:node /data/repos /data/bundles \
  && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack /opt/yarn* /usr/local/bin/yarn /usr/local/bin/yarnpkg
 WORKDIR /app
 COPY --from=build --chown=node:node /out ./

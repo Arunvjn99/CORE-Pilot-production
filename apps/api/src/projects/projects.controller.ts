@@ -13,7 +13,10 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
+  checkpointListQuerySchema,
+  createCheckpointSchema,
   createPageSchema,
+  restoreCheckpointSchema,
   createProjectSchema,
   projectListQuerySchema,
   updatePageSchema,
@@ -119,5 +122,51 @@ export class ProjectsController {
     @Param('pageId', ParseUUIDPipe) pageId: string,
   ) {
     await this.projects.deletePage(auth, id, pageId, correlationIdOf(req));
+  }
+
+  @Get(':id/repository')
+  @RequirePermission('projects:read')
+  repository(@Auth() auth: AuthContext, @Param('id', ParseUUIDPipe) id: string) {
+    return this.projects.repository(auth, id);
+  }
+
+  @Get(':id/checkpoints')
+  @RequirePermission('projects:read')
+  checkpoints(
+    @Auth() auth: AuthContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query(new ZodPipe(checkpointListQuerySchema)) query: z.infer<typeof checkpointListQuerySchema>,
+  ) {
+    return this.projects.listCheckpoints(auth, id, query.limit);
+  }
+
+  @Post(':id/checkpoints')
+  @RequirePermission('projects:write')
+  createCheckpoint(
+    @Auth() auth: AuthContext,
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(createCheckpointSchema)) body: z.infer<typeof createCheckpointSchema>,
+  ) {
+    return this.projects.createCheckpoint(auth, id, body.message, correlationIdOf(req));
+  }
+
+  @Post(':id/checkpoints/:checkpointId/restore')
+  @HttpCode(200)
+  @RequirePermission('projects:write')
+  restore(
+    @Auth() auth: AuthContext,
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('checkpointId', ParseUUIDPipe) checkpointId: string,
+    @Body(new ZodPipe(restoreCheckpointSchema)) body: z.infer<typeof restoreCheckpointSchema>,
+  ) {
+    return this.projects.restoreCheckpoint(
+      auth,
+      id,
+      checkpointId,
+      body.safetyCheckpoint,
+      correlationIdOf(req),
+    );
   }
 }

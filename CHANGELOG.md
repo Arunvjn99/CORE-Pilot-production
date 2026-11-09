@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased] — Phase 2, slice 2.6a Project repositories (2026-11-09)
+
+### Added
+
+- Architecture for slice 2.6 (`docs/architecture/slice-2.6/`, six documents) and ADR-0012.
+- `@core-studio/project-template` v1: a standard Vite + React + React Router + Tailwind app; generators for the manifest, the route table and page components; CI test that the generated app passes `tsc` and `vite build`.
+- One git repository per project (hardened git CLI): created with the project, pages written as route files, manifest-driven routes, checkpoints (commits), history, restore as a new commit with an automatic safety checkpoint, per-checkpoint backup bundles, lazy backfill of existing projects, self-repair of the page projection.
+- API: `GET /projects/:id/repository`, `GET/POST /projects/:id/checkpoints`, `POST /projects/:id/checkpoints/:checkpointId/restore`; pages now return `filePath`. Migration 0008.
+
+### Security
+
+- OAuth callback `code` and `state` values are now redacted from request logs (found while verifying this slice; present since slice 2.1).
+
 ## [Unreleased] — Phase 2, slice 2.5 Project dashboard and workspace shell (2026-11-09)
 
 ### Added

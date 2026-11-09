@@ -2,15 +2,15 @@
 
 Last updated: 2026-11-09
 
-| Phase                                          | Status                                                                                                                                                                                                              |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 — Foundation                                 | **Implemented and verified locally.** CI pipeline written, not yet run on Azure DevOps.                                                                                                                             |
-| 2 — Product shell, identity, providers, canvas | **In progress.** Slices 2.1–2.5 (identity, shell, credential vault, provider settings, projects and workspace shell) done and verified locally; remaining slices pending ([plan](docs/development/phase-2-plan.md)) |
-| 3 — LLM Gateway                                | Not started (ADR-0005 proposed)                                                                                                                                                                                     |
-| 4 — Agent runtime                              | Not started                                                                                                                                                                                                         |
-| 5 — Design system & Knowledge                  | Not started. Blocked on B1 (CORE React package source)                                                                                                                                                              |
-| 6 — Visual canvas                              | Not started (ADR-0006 proposed)                                                                                                                                                                                     |
-| 7 — Integrations & readiness                   | Not started                                                                                                                                                                                                         |
+| Phase                                          | Status                                                                                                                                                                              |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 — Foundation                                 | **Implemented and verified locally.** CI pipeline written, not yet run on Azure DevOps.                                                                                             |
+| 2 — Product shell, identity, providers, canvas | **In progress.** Slices 2.1–2.5 and 2.6a (project repositories) done and verified locally; 2.6b–f planned in docs/architecture/slice-2.6 ([plan](docs/development/phase-2-plan.md)) |
+| 3 — LLM Gateway                                | Not started (ADR-0005 proposed)                                                                                                                                                     |
+| 4 — Agent runtime                              | Not started                                                                                                                                                                         |
+| 5 — Design system & Knowledge                  | Not started. Blocked on B1 (CORE React package source)                                                                                                                              |
+| 6 — Visual canvas                              | Not started (ADR-0006 proposed)                                                                                                                                                     |
+| 7 — Integrations & readiness                   | Not started                                                                                                                                                                         |
 
 ## Phase 1 modules
 
@@ -94,3 +94,15 @@ Re-scoped with the product owner: projects and pages are stored in PostgreSQL no
 | Theme (system/light/dark)                                                                            | Done                              | Unit + E2E axe in both themes                                                    |
 | Visual canvas, code editor, AI assistant, design system                                              | Honest “not available yet” states | Canvas: slices 2.6–2.7; assistant: edit loop; design system: Phase 5 (B1)        |
 | Project repository (source files)                                                                    | Not started                       | Later slice (D6)                                                                 |
+
+## Phase 2 — slice 2.6a Project repositories (2026-11-09)
+
+| Module                                                                                                               | State         | Evidence                                                                                            |
+| -------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------- |
+| Architecture for 2.6 (repository, preview service, security, protocol, plan)                                         | Approved      | `docs/architecture/slice-2.6/`                                                                      |
+| Project template v1 + generators                                                                                     | Done          | 5 tests incl. generated app `tsc` + `vite build`                                                    |
+| Repository per project (init, pages as files, routes, checkpoints, history, restore, bundles, backfill, self-repair) | Done          | 14 integration tests on real git + PostgreSQL; 19 unit tests (path policy, symlinks, log scrubbing) |
+| API image with git, repo volumes                                                                                     | Done          | E2E 16/16 on rebuilt images; repositories verified inside the container                             |
+| Azure Files for repositories                                                                                         | Not validated | Spike S2 (needs Azure access)                                                                       |
+| Blob upload of bundles                                                                                               | Not started   | 2.6f (bundles are written to `BUNDLE_ROOT` today)                                                   |
+| Code index, preview agent, gateway, canvas frame                                                                     | Not started   | 2.6b–2.6e                                                                                           |

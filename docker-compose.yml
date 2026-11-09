@@ -92,6 +92,12 @@ services:
       # Local KEK for credential envelope encryption. Azure uses Key Vault (CREDENTIAL_KEK_PROVIDER=azure-key-vault).
       CREDENTIAL_KEK_PROVIDER: local
       LOCAL_KEK: ${LOCAL_KEK:?set in .env}
+      # Project repositories (Azure: Azure Files share mounted only into the API).
+      REPO_ROOT: /data/repos
+      BUNDLE_ROOT: /data/bundles
+    volumes:
+      - repos:/data/repos
+      - bundles:/data/bundles
     ports: ['127.0.0.1:${API_HOST_PORT:-3000}:3000']
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -136,3 +142,5 @@ services:
 
 volumes:
   pgdata:
+  repos:
+  bundles:

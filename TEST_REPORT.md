@@ -66,3 +66,14 @@ Not yet run: the Azure DevOps pipeline itself (no run has occurred). Coverage th
 | E2E on production images (acceptance journey incl. reload persistence; dashboard archive/restore; dark theme at tablet and desktop; axe on dashboard, dialogs, workspace sections and drawer) | **16/16** (4 new)            |
 
 Defects found by E2E and fixed before commit: Project settings crashed because the shared form rendered a dialog Cancel outside a dialog (unit test added); the assistant panel covered the work area on tablets (now closed by default below 1280px).
+
+## Phase 2 — slice 2.6a (2026-11-09)
+
+| Suite                                                                                                                                                                                                                                                 | Result      |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| TypeScript lint, typecheck, unit and build (`turbo --force`, now 16 tasks incl. project-template)                                                                                                                                                     | 16/16       |
+| project-template (naming, escaping, allow-list parity, generated app `tsc` + `vite build`)                                                                                                                                                            | **5/5**     |
+| API unit (new: path policy ×16 cases, symlink refusal, atomic writes, log scrubbing)                                                                                                                                                                  | **68/68**   |
+| API integration (new: repository lifecycle, pages as files, concurrency, checkpoints, bundle restore, restore with safety checkpoint, cross-project restore, self-repair, lazy backfill, archived refusal, log redaction) — run twice for idempotence | **116/116** |
+| Web unit                                                                                                                                                                                                                                              | 38/38       |
+| E2E on rebuilt production images (all slice 2.5 journeys now write real repositories)                                                                                                                                                                 | **16/16**   |

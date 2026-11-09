@@ -56,6 +56,11 @@ export const envSchema = z
           .filter(Boolean),
       )
       .pipe(z.array(z.uuid())),
+    /** Root of the project repository store (Docker volume locally, Azure Files in Azure). */
+    REPO_ROOT: z.string().startsWith('/').default('/data/repos'),
+    /** Optional directory for per-project git bundles after each checkpoint (backups). */
+    BUNDLE_ROOT: z.string().startsWith('/').optional(),
+    GIT_BINARY: z.string().min(1).default('git'),
     /** Hosts exempt from the production private-address endpoint block (e.g. VNet Ollama). */
     LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS: z
       .string()

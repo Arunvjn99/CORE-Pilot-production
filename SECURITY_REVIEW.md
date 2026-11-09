@@ -143,3 +143,19 @@
 | --- | -------------------------------------------------------------------------------- | ------------------------------------------------------------- |
 | R18 | “Recently opened” is per project (last open by anyone in the team), not per user | Per-user recents if needed, with the usage data in slice 2.10 |
 | R19 | Page metadata will need reconciling with route files when the repository arrives | Repository slice owns the migration                           |
+
+## Phase 2 — slice 2.6a (2026-11-09)
+
+- **Git hardening:** `execFile` with fixed arguments (no shell); user text only as `-m` message values or after `--`; no system/global config; `core.hooksPath=/dev/null`, `core.symlinks=false`, `protocol.allow=never`; no remotes. Commit emails are non-routable per-user addresses (no real emails in history).
+- **Filesystem:** repo paths are built from server UUIDs only; every file operation is policy-checked (no absolute paths, `..`, `.git`, `node_modules`, control characters; depth, name, size and type limits) and every path component is `lstat`-ed, so symlinks are refused rather than followed. Writes are atomic.
+- **Isolation:** repositories live under `REPO_ROOT/<organizationId>/<projectId>`; access requires the project to be visible under RLS; checkpoints of another project can't be restored (tested). New tables use forced RLS with composite same-team foreign keys; checkpoints are append-only for the app role.
+- **Concurrency:** advisory lock per project; the revision marker detects partial failures and the repository wins.
+- **Log fix:** OAuth callback `code`/`state` were written to request logs since slice 2.1 (one-time values bound by PKCE and the browser-binding cookie, so not replayable, but still secrets). They are now redacted in the request serializer, with a unit test and an integration assertion on captured logs.
+- **Scans:** Trivy (`--ignore-unfixed`) api 0 including the new git package; `pnpm audit --prod` 0; gitleaks clean.
+
+### New risks
+
+| ID  | Risk                                                             | Status                                                    |
+| --- | ---------------------------------------------------------------- | --------------------------------------------------------- |
+| R20 | git on Azure Files not yet validated                             | Spike S2 before Azure use                                 |
+| R21 | Bundles stay on the local volume until 2.6f uploads them to Blob | Same volume as the repos locally; not a backup on its own |

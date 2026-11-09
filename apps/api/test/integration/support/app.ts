@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { Controller, Get, type Type } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { Test } from '@nestjs/testing';
@@ -22,6 +25,11 @@ class SensitiveProbeController {
   }
 }
 
+/** One repository store per test process (real git on a temp directory). */
+export const TEST_REPO_ROOT = mkdtempSync(join(tmpdir(), 'core-repos-'));
+
+export const TEST_BUNDLE_ROOT = mkdtempSync(join(tmpdir(), 'core-bundles-'));
+
 export const TEST_LOCAL_KEK = Buffer.alloc(32, 9).toString('base64');
 
 export async function createTestApp(
@@ -45,6 +53,8 @@ export async function createTestApp(
     BOOTSTRAP_PLATFORM_ADMIN_OBJECT_IDS: ADMIN_OID,
     CREDENTIAL_KEK_PROVIDER: 'local',
     LOCAL_KEK: TEST_LOCAL_KEK,
+    REPO_ROOT: TEST_REPO_ROOT,
+    BUNDLE_ROOT: TEST_BUNDLE_ROOT,
     ...overrides,
   });
   const moduleRef = await Test.createTestingModule({

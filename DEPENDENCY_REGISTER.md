@@ -77,3 +77,5 @@ Local/CI only: `ghcr.io/navikt/mock-oauth2-server:3.0.1` (MIT), the OIDC test se
 AI runtime additions (slice 2.3): `cryptography` 50.0.2 (Apache-2.0/BSD) for AES-GCM; `azure-identity` 1.27.0 and `azure-keyvault-keys` 4.11.3 (MIT) for Key Vault unwrap.
 
 AI runtime additions (slice 2.4): `httpx2` 2.16.0 (BSD-3, moved from dev to runtime) for pinned provider egress; `PyJWT[crypto]` 2.15.1 (MIT) for service-token validation (already present transitively via azure-identity/msal; now declared).
+
+Slice 2.6a: `git` (Alpine package, GPL-2.0, executed as a separate binary, not linked) in the API runtime image. `@core-studio/project-template` dev dependencies pin the generated app's allow-listed stack at the studio's versions (react/react-dom 19.3.1, react-router 8.5.1, vite 8.3.6, @vitejs/plugin-react 6.3.0, tailwindcss + @tailwindcss/vite 4.3.5, typescript 5.9.3, @types/react(-dom) 19.3.0) — no new versions were introduced.
