@@ -24,3 +24,12 @@ Not yet run: the Azure DevOps pipeline itself (no run has occurred). Coverage th
 | API integration (real Postgres, Redis and OIDC test server): HTTP foundation 7, RLS 6, auth/session/CSRF/step-up 15, RBAC/cross-team/DB privileges 27                             | **55/55** |
 | Web unit                                                                                                                                                                          | **7/7**   |
 | E2E on the composed production images (real OIDC sign-in through the browser, axe on sign-in and workspace, cookie flags, empty browser storage, sign-out, wrong tenant, no-team) | **7/7**   |
+
+## Phase 2 — slice 2.2 (2026-11-09)
+
+| Suite                                                                                                                               | Result      |
+| ----------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| TypeScript lint, typecheck, unit and build                                                                                          | 12/12 tasks |
+| API integration (new: permissions after late team assignment)                                                                       | **56/56**   |
+| Web unit (auth gate, navigation, members page)                                                                                      | **13/13**   |
+| E2E on production images (sign-in, team management across two users, empty states, 404, mobile width, axe on every page and dialog) | **9/9**     |

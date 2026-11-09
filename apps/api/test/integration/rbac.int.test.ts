@@ -74,6 +74,19 @@ describe('team bootstrap', () => {
     expect(as('designer').session.organizations.map((o) => o.id)).toContain(teamA);
   });
 
+  it('returns permissions for the newly active team when a user is added after sign-in', async () => {
+    const late = await signIn(app, newIdentity('Late Joiner'));
+    expect(late.session.permissions).toEqual([]);
+    await mutate(app, 'post', `/api/v1/orgs/${teamA}/members`, admin)
+      .send({ userId: late.session.user.id, role: 'designer' })
+      .expect(204);
+    const refreshed = await refreshSession(app, late);
+    expect(refreshed.session.activeOrganizationId).toBe(teamA);
+    expect(refreshed.session.permissions).toEqual(
+      expect.arrayContaining(['projects:read', 'canvas:edit']),
+    );
+  });
+
   it('validates request bodies against the contract', async () => {
     const res = await mutate(app, 'post', '/api/v1/orgs', admin).send({ name: 'x' }).expect(400);
     expect((res.body as { error: { details: unknown[] } }).error.details.length).toBeGreaterThan(0);

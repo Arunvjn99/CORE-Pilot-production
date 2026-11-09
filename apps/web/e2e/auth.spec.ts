@@ -1,64 +1,37 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
-
-const tenantId = process.env['E2E_TENANT_ID'];
-const adminOid = process.env['E2E_ADMIN_OID'];
-if (!tenantId || !adminOid)
-  throw new Error('E2E_TENANT_ID and E2E_ADMIN_OID are required (see scripts/test-e2e.sh)');
-
-/** Completes the real OIDC flow through the local test IdP's sign-in form. */
-async function signIn(page: Page, identity: { oid: string; name: string }) {
-  await page.goto('/');
-  await page.getByRole('link', { name: 'Sign in with Microsoft' }).click();
-  await page.locator('input[name="username"]').fill(identity.oid);
-  await page
-    .locator('[name="claims"]')
-    .fill(JSON.stringify({ oid: identity.oid, tid: tenantId, name: identity.name }));
-  await page.getByRole('button', { name: 'Sign-in' }).click();
-  await expect(page.getByLabel('Signed in as')).toHaveText(identity.name);
-}
+import { adminOid, expectAccessible, signIn } from './support';
 
 test('sign-in page is accessible and offers Microsoft sign-in', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('link', { name: 'Sign in with Microsoft' })).toBeVisible();
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
-    .analyze();
-  expect(results.violations).toEqual([]);
+  await expectAccessible(page);
 });
 
-test('company admin signs in, creates a team, lands in the workspace and signs out', async ({
+test('company admin signs in with hardened cookies, reaches projects and signs out', async ({
   page,
   context,
 }) => {
   await signIn(page, { oid: adminOid, name: 'Company Admin' });
-  const cookies = await context.cookies();
-  const sid = cookies.find((c) => c.name === '__Host-core_sid');
+  const sid = (await context.cookies()).find((c) => c.name === '__Host-core_sid');
   expect(sid?.httpOnly).toBe(true);
   expect(sid?.secure).toBe(true);
   expect(sid?.sameSite).toBe('Lax');
 
-  const teamName = `E2E Team ${randomUUID().slice(0, 8)}`;
   const createForm = page.getByLabel('Team name');
   if (await createForm.isVisible()) {
-    await createForm.fill(teamName);
+    await createForm.fill(`E2E Team ${randomUUID().slice(0, 8)}`);
     await page.getByRole('button', { name: 'Create team' }).click();
   }
-  await expect(page.getByRole('heading', { name: 'Workspace' })).toBeVisible();
-  await expect(page.getByRole('status')).toHaveText(/Platform API online/);
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
-    .analyze();
-  expect(results.violations).toEqual([]);
-
+  await expect(page.getByRole('heading', { name: 'Projects', level: 1 })).toBeVisible();
   const storage = await page.evaluate(() => ({
     local: window.localStorage.length,
     session: window.sessionStorage.length,
   }));
   expect(storage).toEqual({ local: 0, session: 0 });
 
-  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByLabel('Signed in as').click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await page.waitForURL(/localhost:8080\/?$|endsession/);
   await page.goto('/');
   await expect(page.getByRole('link', { name: 'Sign in with Microsoft' })).toBeVisible();
@@ -68,6 +41,7 @@ test('a signed-in user without a team is told to ask for access', async ({ page 
   await signIn(page, { oid: randomUUID(), name: 'New Starter' });
   await expect(page.getByRole('heading', { name: 'No team yet' })).toBeVisible();
   await expect(page.getByText('not a member of any team')).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Main' })).toHaveCount(0);
 });
 
 test('identities from another tenant are refused', async ({ page }) => {

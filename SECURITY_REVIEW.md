@@ -75,3 +75,13 @@
 | R9  | A user removed from Entra keeps their session until it expires (12h max) | Per-user revocation exists; Graph/SCIM offboarding hook in Phase 7                          |
 | R10 | Entra not yet wired (no app registration)                                | Config-only switch; production validation enforces the Entra issuer                         |
 | R11 | Mock OIDC server image used locally/CI                                   | Not part of any production image or config; production validation rejects non-Entra issuers |
+
+## Phase 2 — slice 2.2 (2026-11-09)
+
+- **UI permissions are hints only:** permission-aware navigation and controls hide what a user can't do, but the API enforces every rule (covered by the 2.1 RBAC matrix).
+- **No internal details in errors:** the route error boundary never renders error details. Member-management errors show the API's sanitised message.
+- **Scans:**
+  - Trivy on the api and web images: 0 high/critical.
+  - `pnpm audit --prod`: 0.
+  - Production licences: MIT, Apache-2.0, BSD-3-Clause, ISC, PSF-2.0, 0BSD.
+- **Defect found by E2E and fixed:** `/auth/session` returned permissions for the previously active team after auto-activation. This was a UI-only impact (empty navigation), not a privilege escalation, because every API call recomputes permissions server-side.

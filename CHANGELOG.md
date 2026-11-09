@@ -1,6 +1,17 @@
 # Changelog
 
-## [Unreleased] — Phase 2, slice 2.1 Identity & sessions (2026-11-09)
+## [Unreleased] — Phase 2, slice 2.2 Product shell (2026-11-09)
+
+### Added
+
+- Responsive app shell with permission-aware navigation, user menu (Radix), route error boundary.
+- Projects dashboard (empty state), Settings with Members management (directory search, roles, removal), AI providers and Design systems empty states.
+
+### Fixed
+
+- `/auth/session` returns permissions for the team it auto-activates.
+
+## Phase 2, slice 2.1 Identity & sessions (2026-11-09)
 
 ### Added
 

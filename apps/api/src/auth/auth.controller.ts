@@ -23,6 +23,7 @@ import {
 import { Public } from './decorators.js';
 import { IdentityService } from './identity.service.js';
 import { OidcService } from './oidc.service.js';
+import { resolvePermissions } from './permissions.js';
 import { newOpaqueToken, SessionStore, sha256 } from './session.store.js';
 
 /** Only same-app relative paths: blocks open redirects such as //evil.com or /\evil.com. */
@@ -169,6 +170,12 @@ export class AuthController {
         });
       }
     }
+    // Permissions must describe the team that is actually active after the adjustment above.
+    const role =
+      active === auth.organizationId
+        ? auth.role
+        : (organizations.find((org) => org.id === active)?.role ?? null);
+    const permissions = resolvePermissions(role, auth.platformAdmin);
     const recentUntil = auth.session.stepUpAt
       ? auth.session.stepUpAt + this.config.STEP_UP_MAX_AGE_MINUTES * 60_000
       : null;
@@ -181,7 +188,7 @@ export class AuthController {
       },
       organizations,
       activeOrganizationId: active,
-      permissions: [...auth.permissions].sort(),
+      permissions: [...permissions].sort(),
       csrfToken: auth.session.csrfToken,
       recentAuthUntil:
         recentUntil && recentUntil > Date.now() ? new Date(recentUntil).toISOString() : null,
