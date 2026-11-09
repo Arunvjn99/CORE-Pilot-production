@@ -12,6 +12,7 @@ const base = {
   OIDC_CLIENT_ID: 'client',
   OIDC_CLIENT_SECRET: 'a-sufficiently-long-secret',
   OIDC_ALLOWED_TENANT_ID: '7d0c3a2e-0f4e-4b8a-9a35-1f6a2b3c4d5e',
+  LOCAL_KEK: Buffer.alloc(32, 1).toString('base64'),
 };
 
 describe('loadConfig', () => {
@@ -45,8 +46,28 @@ describe('loadConfig', () => {
         PUBLIC_APP_ORIGIN: 'https://studio.example.com',
         OIDC_ISSUER_URL:
           'https://login.microsoftonline.com/7d0c3a2e-0f4e-4b8a-9a35-1f6a2b3c4d5e/v2.0',
+        LOCAL_KEK: undefined,
+        CREDENTIAL_KEK_PROVIDER: 'azure-key-vault',
+        AZURE_KEY_VAULT_KEY_ID: 'https://vault.vault.azure.net/keys/llm-kek',
       }),
     ).not.toThrow();
+  });
+
+  it('refuses the local KEK in production and requires a valid KEK locally', () => {
+    expect(() => loadConfig({ ...base, LOCAL_KEK: 'too-short' })).toThrow(/LOCAL_KEK/);
+    expect(() => loadConfig({ ...base, LOCAL_KEK: undefined })).toThrow(/LOCAL_KEK/);
+    expect(() =>
+      loadConfig({
+        ...base,
+        NODE_ENV: 'production',
+        DATABASE_URL: 'postgres://u:p@db:5432/x?sslmode=verify-full',
+        REDIS_URL: 'rediss://cache:6380',
+        CORS_ALLOWED_ORIGINS: 'https://studio.example.com',
+        PUBLIC_APP_ORIGIN: 'https://studio.example.com',
+        OIDC_ISSUER_URL:
+          'https://login.microsoftonline.com/7d0c3a2e-0f4e-4b8a-9a35-1f6a2b3c4d5e/v2.0',
+      }),
+    ).toThrow(/CREDENTIAL_KEK_PROVIDER/);
   });
 
   it('only accepts the Entra issuer for the allowed tenant in production', () => {

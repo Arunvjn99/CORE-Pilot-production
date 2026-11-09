@@ -48,6 +48,7 @@ export async function authorizeAtIdp(authorizeUrl: string, identity: TestIdentit
 }
 
 export interface SignedIn {
+  identity: TestIdentity;
   cookie: string;
   sessionId: string;
   csrf: string;
@@ -86,13 +87,13 @@ export async function signIn(
     .set('Cookie', cookie)
     .expect(200);
   const session = sessionResponseSchema.parse(sessionRes.body);
-  return { cookie, sessionId, csrf: session.csrfToken, session };
+  return { identity, cookie, sessionId, csrf: session.csrfToken, session };
 }
 
 /** Unsafe request helper with the CSRF token and same-origin header a real browser sends. */
 export function mutate(
   app: NestExpressApplication,
-  method: 'post' | 'patch' | 'delete',
+  method: 'post' | 'put' | 'patch' | 'delete',
   path: string,
   who: SignedIn,
 ) {
@@ -112,4 +113,16 @@ export async function refreshSession(
     .set('Cookie', who.cookie)
     .expect(200);
   return { ...who, session: sessionResponseSchema.parse(res.body) };
+}
+
+/** Completes a forced re-authentication (prompt=login) for an existing session. */
+export async function stepUp(app: NestExpressApplication, who: SignedIn): Promise<void> {
+  const server = app.getHttpServer();
+  const start = await request(server).get('/api/v1/auth/step-up').set('Cookie', who.cookie);
+  const binding = setCookies(start)[0]?.split(';')[0] ?? '';
+  const callback = await authorizeAtIdp(start.headers['location'] as string, who.identity);
+  const done = await request(server)
+    .get(`${callback.pathname}${callback.search}`)
+    .set('Cookie', `${binding}; ${who.cookie}`);
+  if (done.headers['location'] === '/?authError=failed') throw new Error('Step-up failed');
 }

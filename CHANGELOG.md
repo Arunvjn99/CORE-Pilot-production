@@ -1,6 +1,14 @@
 # Changelog
 
-## [Unreleased] — Phase 2, slice 2.2 Product shell (2026-11-09)
+## [Unreleased] — Phase 2, slice 2.3 Credential vault (2026-11-09)
+
+### Added
+
+- Envelope-encrypted LLM credentials (team, personal, company-managed) with step-up-protected create/rotate/revoke, team personal-credential policy, company entitlements.
+- Local and Azure Key Vault key wrappers; AI-runtime vault decryption with a shared cross-language test vector.
+- `.gitleaks.toml`; ADR-0010.
+
+## Phase 2, slice 2.2 Product shell (2026-11-09)
 
 ### Added
 

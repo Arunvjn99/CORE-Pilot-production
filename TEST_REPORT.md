@@ -33,3 +33,12 @@ Not yet run: the Azure DevOps pipeline itself (no run has occurred). Coverage th
 | API integration (new: permissions after late team assignment)                                                                       | **56/56**   |
 | Web unit (auth gate, navigation, members page)                                                                                      | **13/13**   |
 | E2E on production images (sign-in, team management across two users, empty states, 404, mobile width, axe on every page and dialog) | **9/9**     |
+
+## Phase 2 — slice 2.3 (2026-11-09)
+
+| Suite                                                                                                      | Result      |
+| ---------------------------------------------------------------------------------------------------------- | ----------- |
+| API unit (config incl. KEK rules, envelope crypto, Key Vault wrapper, no-decrypt source scan, permissions) | **24/24**   |
+| API integration (now incl. 18 credential tests)                                                            | **73/73**   |
+| AI runtime (ruff, mypy --strict, pytest -W error; vault vector/tamper/binding)                             | **18/18**   |
+| Web unit / E2E (regression)                                                                                | 13/13 · 9/9 |

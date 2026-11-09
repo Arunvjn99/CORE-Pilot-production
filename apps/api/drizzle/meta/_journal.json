@@ -29,6 +29,20 @@
       "when": 1794219675126,
       "tag": "0003_identity_functions_and_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794225909901,
+      "tag": "0004_llm_credentials",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794225910533,
+      "tag": "0005_llm_credentials_grants",
+      "breakpoints": true
     }
   ]
 }

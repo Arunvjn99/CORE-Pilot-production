@@ -4,6 +4,9 @@ version = "0.1.0"
 description = "CORE AI Design Studio — AI agent runtime (Master Agent, LangGraph, LLM Gateway from Phase 3)"
 requires-python = ">=3.13,<3.14"
 dependencies = [
+    "azure-identity>=1.27.0",
+    "azure-keyvault-keys>=4.11.3",
+    "cryptography>=50.0.2",
     "fastapi==0.162.2",
     "opentelemetry-exporter-otlp-proto-http>=1.45.2",
     "opentelemetry-instrumentation-fastapi>=0.66b2",

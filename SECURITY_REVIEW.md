@@ -85,3 +85,25 @@
   - `pnpm audit --prod`: 0.
   - Production licences: MIT, Apache-2.0, BSD-3-Clause, ISC, PSF-2.0, 0BSD.
 - **Defect found by E2E and fixed:** `/auth/session` returned permissions for the previously active team after auto-activation. This was a UI-only impact (empty navigation), not a privilege escalation, because every API call recomputes permissions server-side.
+
+## Phase 2 — slice 2.3 (2026-11-09)
+
+- **Credential storage:** envelope-encrypted and AAD-bound to each row. Key material is destroyed on revoke (enforced by a check constraint), and the runtime role has no DELETE.
+- **Crypto split:** the API can never decrypt (a source-scan test enforces this); only the AI runtime can unwrap.
+- **Personal credentials** are private to their owner through a RESTRICTIVE RLS policy, including from owners and company admins.
+- **Step-up** re-authentication is required for every credential and policy mutation.
+- **Secrets never appear** in responses, audit rows or logs; integration tests capture logs to prove it.
+- **gitleaks** now uses `.gitleaks.toml`, which allow-lists only the deliberately fake secrets in test fixtures.
+- **Scans:**
+  - Trivy: api 0, ai-runtime 0.
+  - `pnpm audit --prod`: 0.
+  - `pip-audit`: 0.
+  - New licences are MIT, Apache-2.0/BSD, MIT-0 (cffi) and PSF.
+
+### New risks
+
+| ID  | Risk                                                          | Status                     |
+| --- | ------------------------------------------------------------- | -------------------------- |
+| R12 | Key Vault wrap/unwrap is not exercised against real Azure yet | Phase 7 infra + smoke test |
+| R13 | KEK version rotation needs a re-seal job                      | Phase 7                    |
+| R14 | Personal credentials of removed members persist until revoked | Offboarding job, Phase 7   |

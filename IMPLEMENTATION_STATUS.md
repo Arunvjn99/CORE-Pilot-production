@@ -2,15 +2,15 @@
 
 Last updated: 2026-11-09
 
-| Phase                                          | Status                                                                                                                                                           |
-| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 — Foundation                                 | **Implemented and verified locally.** CI pipeline written, not yet run on Azure DevOps.                                                                          |
-| 2 — Product shell, identity, providers, canvas | **In progress.** Slices 2.1 (identity & sessions) and 2.2 (product shell) done and verified locally; 2.3–2.10 pending ([plan](docs/development/phase-2-plan.md)) |
-| 3 — LLM Gateway                                | Not started (ADR-0005 proposed)                                                                                                                                  |
-| 4 — Agent runtime                              | Not started                                                                                                                                                      |
-| 5 — Design system & Knowledge                  | Not started. Blocked on B1 (CORE React package source)                                                                                                           |
-| 6 — Visual canvas                              | Not started (ADR-0006 proposed)                                                                                                                                  |
-| 7 — Integrations & readiness                   | Not started                                                                                                                                                      |
+| Phase                                          | Status                                                                                                                                                                        |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 — Foundation                                 | **Implemented and verified locally.** CI pipeline written, not yet run on Azure DevOps.                                                                                       |
+| 2 — Product shell, identity, providers, canvas | **In progress.** Slices 2.1 (identity), 2.2 (product shell) and 2.3 (credential vault) done and verified locally; 2.4–2.10 pending ([plan](docs/development/phase-2-plan.md)) |
+| 3 — LLM Gateway                                | Not started (ADR-0005 proposed)                                                                                                                                               |
+| 4 — Agent runtime                              | Not started                                                                                                                                                                   |
+| 5 — Design system & Knowledge                  | Not started. Blocked on B1 (CORE React package source)                                                                                                                        |
+| 6 — Visual canvas                              | Not started (ADR-0006 proposed)                                                                                                                                               |
+| 7 — Integrations & readiness                   | Not started                                                                                                                                                                   |
 
 ## Phase 1 modules
 
@@ -56,3 +56,15 @@ Authentication (Entra ID) — the API currently exposes only health endpoints. S
 | Settings → AI providers / Design systems                                                                                                | Honest empty states   | Filled by slices 2.3–2.4 and Phase 5 (blocked on B1)                             |
 | AI assistant panel                                                                                                                      | Deferred to slice 2.8 | Lives in the canvas workspace; nothing to attach it to until projects exist      |
 | Fix: session endpoint now returns permissions for the auto-activated team                                                               | Done                  | Regression integration test                                                      |
+
+## Phase 2 — slice 2.3 Credential vault (2026-11-09)
+
+| Module                                                                                       | State                                                    | Evidence                                                                          |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Envelope encryption v1 (AES-256-GCM, per-secret DEK, AAD-bound)                              | Done                                                     | 7 unit tests incl. cross-language vector                                          |
+| Key wrappers: local (dev/test) and Azure Key Vault RSA-OAEP-256                              | Local verified; Key Vault unit-tested with a fake client | Real Key Vault needs Azure (Phase 7 infra)                                        |
+| Crypto split: API wrap-only, AI runtime unwrap/decrypt                                       | Done                                                     | Source-scan test; Python vault tests (7)                                          |
+| Team/personal credentials API: list, create, rotate, revoke; team personal-credential policy | Done                                                     | Integration tests (step-up, RBAC, RLS privacy, cross-team, destruction on revoke) |
+| Company-managed credentials and team entitlements                                            | Done                                                     | Integration tests                                                                 |
+| Secret hygiene: never in responses, audit or logs                                            | Done                                                     | Log-capture and audit-scan tests                                                  |
+| UI for provider credentials                                                                  | Not in this slice                                        | Slice 2.4 (with model discovery and the step-up prompt)                           |

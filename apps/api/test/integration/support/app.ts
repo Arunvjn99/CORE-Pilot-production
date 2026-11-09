@@ -22,9 +22,12 @@ class SensitiveProbeController {
   }
 }
 
+export const TEST_LOCAL_KEK = Buffer.alloc(32, 9).toString('base64');
+
 export async function createTestApp(
   overrides: Record<string, string> = {},
   extraControllers: Type[] = [SensitiveProbeController],
+  options: { logStream?: NodeJS.WritableStream } = {},
 ): Promise<{ app: NestExpressApplication; config: AppConfig }> {
   const config = loadConfig({
     NODE_ENV: 'test',
@@ -40,10 +43,12 @@ export async function createTestApp(
     OIDC_CLIENT_SECRET: 'test-client-secret-0123456789',
     OIDC_ALLOWED_TENANT_ID: TENANT_ID,
     BOOTSTRAP_PLATFORM_ADMIN_OBJECT_IDS: ADMIN_OID,
+    CREDENTIAL_KEK_PROVIDER: 'local',
+    LOCAL_KEK: TEST_LOCAL_KEK,
     ...overrides,
   });
   const moduleRef = await Test.createTestingModule({
-    imports: [AppModule.forRoot(config)],
+    imports: [AppModule.forRoot(config, options)],
     controllers: extraControllers,
   }).compile();
   const app = moduleRef.createNestApplication<NestExpressApplication>({ bufferLogs: true });

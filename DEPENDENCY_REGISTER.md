@@ -29,6 +29,7 @@ Versions are exact and locked (`pnpm-lock.yaml`, `services/ai-runtime/uv.lock`).
 | zod                                                                                                                                   | 4.6.7                   | MIT        | Validation (config, contracts)                      |
 | @opentelemetry/sdk-node, api, exporter-trace-otlp-http, instrumentation-{http,express,pg,ioredis}                                     | 0.301.0 / 1.10.0 / …    | Apache-2.0 | Tracing via OTLP (ADR-0008)                         |
 | openid-client                                                                                                                         | 6.8.9                   | MIT        | OIDC client (certified), PKCE, discovery (ADR-0009) |
+| @azure/identity, @azure/keyvault-keys                                                                                                 | 4.14.1 / 4.10.2         | MIT        | Key Vault wrapKey via managed identity (ADR-0010)   |
 | cookie                                                                                                                                | 2.0.2                   | MIT        | Cookie parse/serialise for session cookies          |
 | reflect-metadata, rxjs                                                                                                                | 0.2.2 / 7.8.2           | Apache-2.0 | NestJS requirements                                 |
 | _Dev:_ drizzle-kit 0.31.11, vitest 5.1.0, unplugin-swc 2.0.0, @swc/core 1.16.22, @swc-node/register, supertest 7.3.2, @nestjs/testing |                         | MIT/Apache | Migrations generation, tests, dev runner            |
@@ -72,3 +73,5 @@ Rejected: `eslint-plugin-jsx-a11y` (no ESLint 10 support; axe-core covers runtim
 `node:24.22.2-alpine3.24`, `nginxinc/nginx-unprivileged:1.31.7-alpine3.24`, `python:3.13.18-slim-trixie`, `ghcr.io/astral-sh/uv:0.11.7`, local-only `postgres:17.6-alpine`, `redis:8.2-alpine`. Scanners: `aquasec/trivy:0.76.2`, `zricethezav/gitleaks:v8.28.0`.
 
 Local/CI only: `ghcr.io/navikt/mock-oauth2-server:3.0.1` (MIT), the OIDC test server (never in production).
+
+AI runtime additions (slice 2.3): `cryptography` 50.0.2 (Apache-2.0/BSD) for AES-GCM; `azure-identity` 1.27.0 and `azure-keyvault-keys` 4.11.3 (MIT) for Key Vault unwrap.

@@ -51,13 +51,45 @@ export const envSchema = z
           .filter(Boolean),
       )
       .pipe(z.array(z.uuid())),
+    /** Envelope-encryption KEK source (ADR-0010). `local` is for development/test only. */
+    CREDENTIAL_KEK_PROVIDER: z.enum(['local', 'azure-key-vault']).default('local'),
+    LOCAL_KEK: z
+      .string()
+      .refine(
+        (value) => Buffer.from(value, 'base64').length === 32,
+        'LOCAL_KEK must be 32 bytes, base64-encoded',
+      )
+      .optional(),
+    /** Versionless Key Vault key URL, e.g. https://<vault>.vault.azure.net/keys/<name> */
+    AZURE_KEY_VAULT_KEY_ID: z.url({ protocol: /^https$/ }).optional(),
     API_DOCS_ENABLED: z
       .enum(['true', 'false'])
       .default('false')
       .transform((v) => v === 'true'),
   })
   .superRefine((env, ctx) => {
+    if (env.CREDENTIAL_KEK_PROVIDER === 'local' && !env.LOCAL_KEK) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['LOCAL_KEK'],
+        message: 'Required when CREDENTIAL_KEK_PROVIDER=local',
+      });
+    }
+    if (env.CREDENTIAL_KEK_PROVIDER === 'azure-key-vault' && !env.AZURE_KEY_VAULT_KEY_ID) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['AZURE_KEY_VAULT_KEY_ID'],
+        message: 'Required when CREDENTIAL_KEK_PROVIDER=azure-key-vault',
+      });
+    }
     if (env.NODE_ENV !== 'production') return;
+    if (env.CREDENTIAL_KEK_PROVIDER !== 'azure-key-vault' || env.LOCAL_KEK) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['CREDENTIAL_KEK_PROVIDER'],
+        message: 'Production requires azure-key-vault and no LOCAL_KEK',
+      });
+    }
     const sslMode = new URL(env.DATABASE_URL).searchParams.get('sslmode');
     if (sslMode !== 'require' && sslMode !== 'verify-full') {
       ctx.addIssue({

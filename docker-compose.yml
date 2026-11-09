@@ -86,6 +86,9 @@ services:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?set in .env}
       OIDC_ALLOWED_TENANT_ID: ${OIDC_ALLOWED_TENANT_ID:?set in .env}
       BOOTSTRAP_PLATFORM_ADMIN_OBJECT_IDS: ${BOOTSTRAP_PLATFORM_ADMIN_OBJECT_IDS:-}
+      # Local KEK for credential envelope encryption. Azure uses Key Vault (CREDENTIAL_KEK_PROVIDER=azure-key-vault).
+      CREDENTIAL_KEK_PROVIDER: local
+      LOCAL_KEK: ${LOCAL_KEK:?set in .env}
     ports: ['127.0.0.1:${API_HOST_PORT:-3000}:3000']
     depends_on:
       migrate: { condition: service_completed_successfully }

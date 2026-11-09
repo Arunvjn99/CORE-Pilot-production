@@ -1,0 +1,11 @@
+# Extends the default ruleset. Only test fixtures with deliberately fake secrets are allow-listed.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Fake secrets used by automated tests"
+paths = [
+  '''packages/contracts/test-vectors/.*\.json''',
+  '''apps/api/test/.*\.ts''',
+  '''services/ai-runtime/tests/.*\.py''',
+]
