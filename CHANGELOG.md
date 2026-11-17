@@ -2,6 +2,12 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-17 · Docs and scans for the v2 re-baseline
+
+- **ADR-0013** (v2 re-baseline: agent graph, versioned AGENT.md/DESIGN.md, static separate-origin preview runtime). The slice 2.6 preview-container documents are marked superseded (2.6a repositories remain valid).
+- IMPLEMENTATION_STATUS, TEST_REPORT, SECURITY_REVIEW (preview origin CSP with `'unsafe-eval'` by design and `connect-src 'self'`; new risks R22–R25) and DEPENDENCY_REGISTER (langgraph, langsmith, @babel/parser, @babel/standalone, @tailwindcss/browser) updated.
+- Scans: `pnpm audit --prod` 0; `pip-audit` 0; gitleaks clean; Trivy finds no library vulnerabilities, secrets or misconfigurations in any image (OS-package findings only in sandbox builds that skip the OS upgrade step).
+
 ### 2026-11-17 · Studio E2E on the composed stack, and fixes it found
 
 - **E2E (`apps/web/e2e/studio.spec.ts`):** on the Docker Compose stack, the team owner connects the model, a designer creates a project, prompts the agent team, follows the live run, sees both screens render on the separate preview origin, edits a heading in the Design panel (written to source, survives reload), plays the prototype across screens, and checks metrics/agents/design systems. The model is an Ollama-compatible fake served by the test (`e2e/fake-llm.ts`); CI enables it with `LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS=host.docker.internal`. Screenshots in `docs/screenshots/v2/`.

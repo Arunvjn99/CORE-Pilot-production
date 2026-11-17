@@ -1,5 +1,7 @@
 # Slice 2.6 — Git-per-project and isolated preview: architecture overview
 
+> **Partly superseded (2026-11-17)** by [ADR-0013](../../adr/0013-v2-rebaseline-and-preview-runtime.md): slice 2.6a (project repositories, ADR-0012) is implemented and remains valid; the preview-container slices 2.6b–2.6f are retired in favour of the static preview runtime.
+
 Status: **Approved 2026-11-09** (decisions D9–D16 as recommended). 2.6a implemented.
 Date: 2026-11-09 · Baseline: `main` @ `db99066`
 

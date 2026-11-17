@@ -159,3 +159,30 @@
 | --- | ---------------------------------------------------------------- | --------------------------------------------------------- |
 | R20 | git on Azure Files not yet validated                             | Spike S2 before Azure use                                 |
 | R21 | Bundles stay on the local volume until 2.6f uploads them to Blob | Same volume as the repos locally; not a backup on its own |
+
+## Studio v2 (2026-11-17)
+
+### Controls added
+
+- **Preview isolation:** screens run on `PREVIEW_ORIGIN`, a different _site_ from the studio (the API refuses to start otherwise). The iframe is `sandbox="allow-scripts allow-same-origin allow-forms"` (same-origin here means the preview origin, never the studio), `referrerpolicy=no-referrer`. Preview CSP: `default-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors <studio>; form-action 'none'; base-uri 'none'; object-src 'none'`. Studio CSP allows only `frame-src <preview origin>`.
+- **postMessage:** both sides accept messages only from the exact peer origin; the studio also requires `event.source` to be that iframe's window and validates every message against the versioned protocol schema; nothing is ever posted to `*` (unit-tested, including look-alike origins and other frames).
+- **Source edits:** typed operations only; attributes from an allow-list (`data-link`, `alt`, `placeholder`, `aria-label`, `title`); class names reject quotes, braces, angle brackets and backslashes; text with JSX-significant characters is written as a string literal; only screen files may be edited; result must re-parse; `baseRevision` check (integration-tested).
+- **Runs:** the team key is sealed to the runtime and never returned; upstream provider errors map to fixed codes (no upstream text reaches browsers, tested); screens are validated before commit; one run per project; SSE requires the session and team access to the run (RLS), and `Last-Event-ID` is format-checked before use.
+- **Tenancy:** new tables (`agent_definitions`, `design_system_versions`, `generation_runs`, `run_steps`) use the same RLS policies; cross-team access tested through the API and directly with the app role.
+- **LangSmith:** off by default; when enabled, EU endpoint by default (R4 pending).
+
+### Scans
+
+- `pnpm audit --prod`: 0. Full audit: 2 moderate, dev-only (R1, R2, unchanged).
+- `pip-audit` (runtime lock): 0.
+- gitleaks (full history, repo config): no leaks.
+- Trivy (vuln, secret, misconfig; HIGH/CRITICAL; fixed only) on all four images built in the sandbox: **no library vulnerabilities, secrets or misconfigurations; API image clean.** Web, preview and AI runtime show only OS-package findings (musl, zlib, expat, libxslt, brotli, curl) that the Dockerfiles' `apk upgrade` / `apt-get upgrade` steps patch — those steps could not run in the sandbox (mirrors blocked). The CI Trivy gate on the real builds remains authoritative.
+
+### New risks
+
+| ID  | Risk                                                                                                                                                                              | Treatment                                                                                                                                                                           |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R22 | `'unsafe-eval'` on the preview origin (in-browser TSX compilation)                                                                                                                | Accepted by design (ADR-0013): no credentials or data on that origin, `connect-src 'self'`, framed only by the studio, messages validated. Must never share a site with the studio. |
+| R23 | Generated code runs in reviewers' browsers                                                                                                                                        | Contained by the separate origin and sandbox; screens may only import `react`. Review before export.                                                                                |
+| R24 | The studio's CSP (`style-src 'self'`) blocks one inline style during the studio journey (one console error; source not yet identified, likely a UI library injecting a `<style>`) | Low: no functional failure seen in E2E. Identify the source; allow it by hash/nonce or replace it — do not add `'unsafe-inline'`.                                                   |
+| R25 | LangSmith traces would include prompts and generated code                                                                                                                         | Off until the company approves the destination (R4).                                                                                                                                |

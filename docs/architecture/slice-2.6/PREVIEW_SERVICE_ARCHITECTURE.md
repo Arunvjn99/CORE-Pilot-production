@@ -1,5 +1,7 @@
 # Preview service architecture
 
+> **Superseded (2026-11-17)** by [ADR-0013](../../adr/0013-v2-rebaseline-and-preview-runtime.md): the v2 studio renders screens in a static preview runtime on a separate origin (`apps/preview`) instead of per-project preview containers. Kept for history; do not implement.
+
 Status: **Approved 2026-11-09.** Part of [SLICE_2_6_ARCHITECTURE.md](SLICE_2_6_ARCHITECTURE.md). Security details are in [PREVIEW_SECURITY_MODEL.md](PREVIEW_SECURITY_MODEL.md).
 
 ## 1. Components
