@@ -1,0 +1,5 @@
+{
+  "extends": "@core-studio/config/tsconfig.base.json",
+  "compilerOptions": { "rootDir": ".", "types": ["node"] },
+  "include": ["src", "test"]
+}

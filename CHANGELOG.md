@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased] — Studio v2 (re-baseline, in progress)
+
+### 2026-11-17 · Backend foundation for the v2 studio
+
+- **Plan:** `docs/development/v2-rebaseline-plan.md` — reuse open-codesign (MIT), dsh-design-studio (MIT), codexdesign (GPL, UX ideas only) and the POC agents + CORE 2.0 design system.
+- **AI runtime:** LangGraph design graph (orchestrator → UX → UI per screen in parallel → reviewer → fix loop), chat adapters for OpenAI / Anthropic / Gemini / Azure OpenAI / Ollama over the SSRF-safe egress, streamed NDJSON events, optional LangSmith tracing + feedback scores (off by default).
+- **`@core-studio/studio-library`:** default `AGENT.md` per agent and design systems (CORE 2.0 default + minimal, corporate, flat) with a shared token contract.
+- **API:** editable, versioned agents and design systems; project `DESIGN.md`/tokens in the repo; screens endpoint; deterministic source edits (text, classes, attributes) via Babel AST; design runs with the team's one key, step recording, Redis-backed SSE events, validated screens committed with a checkpoint; metrics endpoint. Migration 0009.
+- Tests: runtime graph (3), source edits (5), library (3); existing suites green.
+
 ## [Unreleased] — Phase 2, slice 2.6a Project repositories (2026-11-09)
 
 ### Added

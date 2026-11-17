@@ -17,6 +17,21 @@ const originList = csv.pipe(
     .refine((origins) => !origins.includes('*'), 'Wildcard CORS origins are not allowed'),
 );
 
+/**
+ * Two origins share a site when their hosts are equal or one is a subdomain of the other's
+ * registrable part. Conservative: treats any shared last-two-labels host suffix as the same site.
+ */
+export function sameSite(a: string, b: string): boolean {
+  const host = (o: string) => new URL(o).hostname;
+  const ha = host(a);
+  const hb = host(b);
+  if (ha === hb) return true;
+  const ip = /^[\d.]+$|^\[/;
+  if (ip.test(ha) || ip.test(hb)) return false;
+  const site = (h: string) => h.split('.').slice(-2).join('.');
+  return site(ha) === site(hb);
+}
+
 export const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']),
@@ -56,6 +71,15 @@ export const envSchema = z
           .filter(Boolean),
       )
       .pipe(z.array(z.uuid())),
+    /** Maximum duration of one AI design run (all agents). */
+    DESIGN_RUN_TIMEOUT_SECONDS: z.coerce.number().int().min(30).max(1800).default(600),
+    /** Origin that serves the preview runtime. Must be a different site from PUBLIC_APP_ORIGIN. */
+    PREVIEW_ORIGIN: z.url({ protocol: /^https?$/ }).transform((value) => new URL(value).origin),
+    /** Shown to users so they know whether design runs are traced (LangSmith, decision R4). */
+    LANGSMITH_TRACING: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((v) => v === 'true'),
     /** Root of the project repository store (Docker volume locally, Azure Files in Azure). */
     REPO_ROOT: z.string().startsWith('/').default('/data/repos'),
     /** Optional directory for per-project git bundles after each checkpoint (backups). */
@@ -100,6 +124,13 @@ export const envSchema = z
         code: 'custom',
         path: ['AZURE_KEY_VAULT_KEY_ID'],
         message: 'Required when CREDENTIAL_KEK_PROVIDER=azure-key-vault',
+      });
+    }
+    if (sameSite(env.PREVIEW_ORIGIN, env.PUBLIC_APP_ORIGIN)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PREVIEW_ORIGIN'],
+        message: 'The preview must be served from a different site than the studio',
       });
     }
     if (env.NODE_ENV !== 'production') return;

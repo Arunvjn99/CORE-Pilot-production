@@ -12,9 +12,7 @@ from ai_runtime.vault.envelope import (
     open_sealed,
 )
 
-VECTOR_PATH = (
-    Path(__file__).resolve().parents[3] / "packages/contracts/test-vectors/credential-envelope-v1.json"
-)
+VECTOR_PATH = Path(__file__).resolve().parents[3] / "packages/contracts/test-vectors/credential-envelope-v1.json"
 
 
 @pytest.fixture
@@ -56,9 +54,7 @@ def test_ciphertext_is_bound_to_its_credential_id(vector: dict[str, str | int]) 
 
 def test_ciphertext_is_bound_to_its_kind(vector: dict[str, str | int]) -> None:
     with pytest.raises(CredentialDecryptionError):
-        open_sealed(
-            replace(sealed_from(vector), kind="platform"), LocalKeyUnwrapper(str(vector["localKekBase64"]))
-        )
+        open_sealed(replace(sealed_from(vector), kind="platform"), LocalKeyUnwrapper(str(vector["localKekBase64"])))
 
 
 def test_wrong_kek_fails(vector: dict[str, str | int]) -> None:
@@ -77,14 +73,10 @@ def test_tampered_ciphertext_fails(vector: dict[str, str | int]) -> None:
 
 def test_unknown_envelope_version_rejected(vector: dict[str, str | int]) -> None:
     with pytest.raises(CredentialDecryptionError):
-        open_sealed(
-            replace(sealed_from(vector), envelope_version=2), LocalKeyUnwrapper(str(vector["localKekBase64"]))
-        )
+        open_sealed(replace(sealed_from(vector), envelope_version=2), LocalKeyUnwrapper(str(vector["localKekBase64"])))
 
 
 def test_key_vault_wrapped_credentials_are_not_opened_locally(vector: dict[str, str | int]) -> None:
-    sealed = replace(
-        sealed_from(vector), wrap_algorithm="RSA-OAEP-256", kek_id="https://v.vault.azure.net/keys/k"
-    )
+    sealed = replace(sealed_from(vector), wrap_algorithm="RSA-OAEP-256", kek_id="https://v.vault.azure.net/keys/k")
     with pytest.raises(CredentialDecryptionError):
         open_sealed(sealed, LocalKeyUnwrapper(str(vector["localKekBase64"])))

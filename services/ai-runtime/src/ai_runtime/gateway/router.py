@@ -88,9 +88,7 @@ router = APIRouter(prefix="/internal/v1", dependencies=[Depends(require_service_
 
 
 @router.post("/providers/probe", response_model=ProbeResponse, response_model_by_alias=True)
-async def probe_provider(
-    body: ProbeRequest, settings: Annotated[Settings, Depends(get_settings)]
-) -> ProbeResponse:
+async def probe_provider(body: ProbeRequest, settings: Annotated[Settings, Depends(get_settings)]) -> ProbeResponse:
     secret: str | None = None
     if body.sealed is not None:
         try:

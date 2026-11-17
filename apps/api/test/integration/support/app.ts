@@ -46,6 +46,7 @@ export async function createTestApp(
     AI_RUNTIME_URL: 'http://localhost:8000',
     RATE_LIMIT_PER_MINUTE: '10000',
     PUBLIC_APP_ORIGIN: APP_ORIGIN,
+    PREVIEW_ORIGIN: 'http://127.0.0.1:8090',
     OIDC_ISSUER_URL: requireEnv('TEST_OIDC_ISSUER_URL'),
     OIDC_CLIENT_ID: 'core-studio-test',
     OIDC_CLIENT_SECRET: 'test-client-secret-0123456789',

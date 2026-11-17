@@ -13,6 +13,7 @@ import {
   componentNameFor,
   type Manifest,
   type ManifestPage,
+  MANAGED_FILES,
   MANIFEST_PATH,
   pageFilePath,
   parseManifest,
@@ -365,6 +366,49 @@ export class RepositoriesService {
     await this.syncPages(tx, actor.organizationId, projectId, next);
     await this.bumpRevision(tx, projectId, repo.marker);
     return page;
+  }
+
+  // ---------- generic file access (screens, DESIGN.md, tokens) ----------
+
+  async revision(tx: Database, projectId: string): Promise<number> {
+    return (await this.state(tx, projectId))?.workingRevision ?? 0;
+  }
+
+  /** Reads a text file; null when it does not exist. Path policy applies. */
+  async readFile(actor: RepoActor, projectId: string, path: string): Promise<string | null> {
+    const repo = this.open(actor.organizationId, projectId);
+    return (await repo.fs.exists(path)) ? repo.fs.readText(path) : null;
+  }
+
+  /**
+   * Writes files through the path policy (managed files refused) and bumps the revision once.
+   * `baseRevision` (optional) enforces optimistic concurrency for interactive edits.
+   */
+  async writeFiles(
+    tx: Database,
+    actor: RepoActor,
+    projectId: string,
+    files: { path: string; content: string }[],
+    baseRevision?: number,
+  ): Promise<number> {
+    await this.ensureReady(tx, actor, projectId);
+    const current = await this.revision(tx, projectId);
+    if (baseRevision !== undefined && baseRevision !== current)
+      throw new ConflictException({
+        code: 'STALE_REVISION',
+        message: 'The project changed in the meantime. Reload and try again.',
+        details: [{ path: 'baseRevision', message: String(current) }],
+      });
+    const repo = this.open(actor.organizationId, projectId);
+    for (const file of files) {
+      if (MANAGED_FILES.includes(file.path))
+        throw conflict(
+          'MANAGED_FILE',
+          `${file.path} is managed by CORE Studio and can't be edited.`,
+        );
+      await repo.fs.write(file.path, file.content);
+    }
+    return this.bumpRevision(tx, projectId, repo.marker);
   }
 
   // ---------- state, checkpoints, restore ----------

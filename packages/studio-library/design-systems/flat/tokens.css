@@ -1,0 +1,29 @@
+/* Flat — design tokens. Every design system defines the same variable names (see README). */
+:root {
+  --color-primary: #c2410c;
+  --color-primary-hover: #9a3412;
+  --color-on-primary: #ffffff;
+  --color-primary-subtle: #fff1ec;
+  --color-surface: #ffffff;
+  --color-surface-2: #f9fafb;
+  --color-surface-3: #f3f4f6;
+  --color-text: #111827;
+  --color-text-muted: #4b5563;
+  --color-border: #e5e7eb;
+  --color-success: #16a34a;
+  --color-success-subtle: #dcfce7;
+  --color-warning: #b45309;
+  --color-warning-subtle: #fef3c7;
+  --color-danger: #dc2626;
+  --color-danger-subtle: #fee2e2;
+  --color-info: #7c3aed;
+  --color-info-subtle: #ede9fe;
+  --font-sans: Inter, system-ui, sans-serif;
+  --radius-sm: 0px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --shadow-1: none;
+  --shadow-2: none;
+  --shadow-3: 0 2px 0 rgba(0,0,0,0.08);
+  --focus-ring: 0 0 0 2px #fdba74;
+}

@@ -21,5 +21,6 @@ import { createKeyWrapper, KEY_WRAPPER } from './crypto/key-wrapper.provider.js'
       useFactory: (config: AppConfig) => createKeyWrapper(config),
     },
   ],
+  exports: [LlmSettingsService, RuntimeClient],
 })
 export class CredentialsModule {}

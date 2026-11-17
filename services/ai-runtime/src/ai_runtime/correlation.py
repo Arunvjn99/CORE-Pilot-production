@@ -15,9 +15,7 @@ def resolve_correlation_id(inbound: str | None) -> str:
     return inbound if inbound is not None and _VALID.fullmatch(inbound) else str(uuid.uuid4())
 
 
-async def correlation_middleware(
-    request: Request, call_next: Callable[[Request], Awaitable[Response]]
-) -> Response:
+async def correlation_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
     correlation_id = resolve_correlation_id(request.headers.get(CORRELATION_ID_HEADER))
     request.state.correlation_id = correlation_id
     with structlog.contextvars.bound_contextvars(correlation_id=correlation_id):

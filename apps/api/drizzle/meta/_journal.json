@@ -64,6 +64,13 @@
       "when": 1794238263255,
       "tag": "0008_project_repositories",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794899117178,
+      "tag": "0009_studio_v2",
+      "breakpoints": true
     }
   ]
 }

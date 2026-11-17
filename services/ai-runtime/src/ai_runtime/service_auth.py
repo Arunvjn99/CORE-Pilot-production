@@ -54,9 +54,7 @@ def verify_service_token(token: str, settings: Settings) -> dict[str, Any]:
     return claims
 
 
-def require_service_caller(
-    request: Request, settings: Annotated[Settings, Depends(get_settings)]
-) -> dict[str, Any]:
+def require_service_caller(request: Request, settings: Annotated[Settings, Depends(get_settings)]) -> dict[str, Any]:
     header = request.headers.get("authorization", "")
     scheme, _, token = header.partition(" ")
     if scheme.lower() != "bearer" or not token:

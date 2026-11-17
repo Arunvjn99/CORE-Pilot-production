@@ -99,4 +99,63 @@ export class RuntimeClient {
       return RUNTIME_UNAVAILABLE;
     }
   }
+
+  /**
+   * Starts a design run in the AI runtime and calls `onEvent` for each NDJSON event as it streams.
+   * Resolves when the stream ends; network/HTTP failures are reported as an `error` event.
+   */
+  async streamDesignRun(
+    body: Record<string, unknown>,
+    correlationId: string,
+    onEvent: (event: Record<string, unknown>) => Promise<void>,
+  ): Promise<void> {
+    let response: Response;
+    try {
+      response = await fetch(new URL('/internal/v1/design-runs', this.config.AI_RUNTIME_URL), {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${await this.token()}`,
+          'content-type': 'application/json',
+          [CORRELATION_ID_HEADER]: correlationId,
+        },
+        body: JSON.stringify(body),
+        redirect: 'error',
+        signal: AbortSignal.timeout(this.config.DESIGN_RUN_TIMEOUT_SECONDS * 1000),
+      });
+    } catch (error) {
+      this.logger.warn(
+        { err: error instanceof Error ? error.name : 'unknown', correlationId },
+        'AI runtime unreachable',
+      );
+      await onEvent({ type: 'error', code: 'runtime_unavailable' });
+      return;
+    }
+    if (response.status === 401) this.cached = null;
+    if (!response.ok || !response.body) {
+      await onEvent({ type: 'error', code: 'runtime_unavailable' });
+      return;
+    }
+    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = '';
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += value;
+        if (buffer.length > 8 * 1024 * 1024) throw new Error('Event too large');
+        let newline: number;
+        while ((newline = buffer.indexOf('\n')) >= 0) {
+          const line = buffer.slice(0, newline).trim();
+          buffer = buffer.slice(newline + 1);
+          if (line) await onEvent(JSON.parse(line) as Record<string, unknown>);
+        }
+      }
+    } catch (error) {
+      this.logger.warn(
+        { err: error instanceof Error ? error.name : 'unknown', correlationId },
+        'Design run stream failed',
+      );
+      await onEvent({ type: 'error', code: 'runtime_stream_failed' });
+    }
+  }
 }

@@ -325,6 +325,46 @@ export class LlmSettingsService {
     });
   }
 
+  /**
+   * The team's one key + default model, as a sealed payload for the AI runtime (never decrypted here).
+   * Must be called inside the caller's RLS transaction. Returns null when no default is set.
+   */
+  async defaultTarget(
+    tx: Database,
+    organizationId: string,
+  ): Promise<{
+    provider: LlmProvider;
+    endpoint: string | null;
+    apiVersion: string | null;
+    deployment: string | null;
+    model: string;
+    sealed: SealedPayload | null;
+  } | null> {
+    const [row] = await tx
+      .select({
+        teamCredentialId: organizationLlmDefaults.teamCredentialId,
+        platformCredentialId: organizationLlmDefaults.platformCredentialId,
+        model: organizationLlmDefaults.model,
+      })
+      .from(organizationLlmDefaults)
+      .where(eq(organizationLlmDefaults.organizationId, organizationId));
+    if (!row) return null;
+    const kind = row.teamCredentialId ? ('team' as const) : ('platform' as const);
+    const table = row.teamCredentialId ? llmCredentials : platformLlmCredentials;
+    const id = row.teamCredentialId ?? row.platformCredentialId;
+    if (!id) return null;
+    const [cred] = await tx.select(sealedSelect(table)).from(table).where(eq(table.id, id));
+    if (cred?.status !== 'active') return null;
+    return {
+      provider: cred.provider,
+      endpoint: cred.endpoint,
+      apiVersion: cred.apiVersion,
+      deployment: cred.deployment,
+      model: row.model,
+      sealed: sealedPayload(kind, cred),
+    };
+  }
+
   // ---------- activity ----------
 
   /**

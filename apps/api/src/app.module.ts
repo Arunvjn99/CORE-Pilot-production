@@ -15,6 +15,7 @@ import { CredentialsModule } from './credentials/credentials.module.js';
 import { HealthModule } from './health/health.module.js';
 import { OrgsModule } from './orgs/orgs.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
+import { StudioModule } from './studio/studio.module.js';
 import { RedisThrottlerStorage } from './redis/redis-throttler.storage.js';
 import { RedisModule } from './redis/redis.module.js';
 
@@ -75,6 +76,7 @@ export class AppModule {
         OrgsModule,
         CredentialsModule,
         ProjectsModule,
+        StudioModule,
       ],
       providers: [
         { provide: APP_GUARD, useClass: ThrottlerGuard },

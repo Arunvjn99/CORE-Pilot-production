@@ -1,6 +1,9 @@
 @import 'tailwindcss';
+/* Design tokens from the project's design system (DESIGN.md). Replaced when the design system changes. */
+@import './tokens.css';
 
-/* Design tokens. The CORE design system replaces these when it is registered (Phase 5). */
-@theme {
-  --color-brand: #1f4fd1;
+body {
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-surface);
 }

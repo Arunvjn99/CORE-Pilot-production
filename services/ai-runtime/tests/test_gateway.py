@@ -93,9 +93,7 @@ async def test_connection_is_pinned_to_checked_address_with_sni(monkeypatch: pyt
         ("https://10.0.0.5/", EgressPolicy(allow_private=False)),
     ],
 )
-async def test_rejects_disallowed_requests(
-    monkeypatch: pytest.MonkeyPatch, url: str, policy: EgressPolicy
-) -> None:
+async def test_rejects_disallowed_requests(monkeypatch: pytest.MonkeyPatch, url: str, policy: EgressPolicy) -> None:
     resolve_to(monkeypatch, {"api.example.com": ["93.184.216.34"]})
     with pytest.raises(EgressBlockedError):
         await send(PinnedTransport(policy, Recorder()), url)
@@ -105,9 +103,7 @@ async def test_rejects_disallowed_requests(
 async def test_private_allowlist_and_dev_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     resolve_to(monkeypatch, {"ollama.corp.internal": ["10.0.0.9"]})
     policy = EgressPolicy(allow_private=False, allowed_private_hosts=("ollama.corp.internal",))
-    assert (
-        await send(PinnedTransport(policy, Recorder()), "https://ollama.corp.internal/")
-    ).status_code == 200
+    assert (await send(PinnedTransport(policy, Recorder()), "https://ollama.corp.internal/")).status_code == 200
 
 
 @pytest.mark.anyio
@@ -213,9 +209,7 @@ async def test_probe_lists_models(
 async def test_probe_maps_failures_without_leaking_upstream_body(
     monkeypatch: pytest.MonkeyPatch, status: int, code: str
 ) -> None:
-    result = await run_probe(
-        monkeypatch, target("openai"), Recorder(status, {"error": "secret internal detail"})
-    )
+    result = await run_probe(monkeypatch, target("openai"), Recorder(status, {"error": "secret internal detail"}))
     assert result.code == code
     assert "secret internal detail" not in result.message
 
@@ -302,18 +296,13 @@ def test_internal_route_rejects_bad_tokens(
     gateway: TestClient, signing_key: rsa.RSAPrivateKey, overrides: dict[str, Any], status: int
 ) -> None:
     headers = {"authorization": f"Bearer {token(signing_key, **overrides)}"}
-    assert (
-        gateway.post("/internal/v1/providers/probe", json=sealed_body(), headers=headers).status_code
-        == status
-    )
+    assert gateway.post("/internal/v1/providers/probe", json=sealed_body(), headers=headers).status_code == status
 
 
 def test_rejects_token_signed_by_another_key(gateway: TestClient) -> None:
     other = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     headers = {"authorization": f"Bearer {token(other)}"}
-    assert (
-        gateway.post("/internal/v1/providers/probe", json=sealed_body(), headers=headers).status_code == 401
-    )
+    assert gateway.post("/internal/v1/providers/probe", json=sealed_body(), headers=headers).status_code == 401
 
 
 def test_probe_decrypts_sealed_secret_and_never_returns_it(
@@ -339,9 +328,7 @@ def test_probe_decrypts_sealed_secret_and_never_returns_it(
     assert VECTOR["expectedSecret"] not in response.text
 
 
-def test_tampered_envelope_reports_credential_unavailable(
-    gateway: TestClient, signing_key: rsa.RSAPrivateKey
-) -> None:
+def test_tampered_envelope_reports_credential_unavailable(gateway: TestClient, signing_key: rsa.RSAPrivateKey) -> None:
     body = sealed_body()
     body["sealed"]["credentialId"] = "00000000-0000-4000-8000-000000000000"
     response = gateway.post(
@@ -366,9 +353,7 @@ async def test_tries_next_checked_address_when_first_refuses(monkeypatch: pytest
             return await super().handle_async_request(request)
 
     inner = FirstRefuses()
-    response = await send(
-        PinnedTransport(EgressPolicy(allow_private=False), inner), "https://api.example.com/"
-    )
+    response = await send(PinnedTransport(EgressPolicy(allow_private=False), inner), "https://api.example.com/")
     assert response.status_code == 200
     assert inner.requests[0].url.host == "93.184.216.34"
 

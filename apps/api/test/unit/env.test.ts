@@ -8,6 +8,7 @@ const base = {
   CORS_ALLOWED_ORIGINS: 'http://localhost:5173',
   AI_RUNTIME_URL: 'http://localhost:8000',
   PUBLIC_APP_ORIGIN: 'http://localhost:8080',
+  PREVIEW_ORIGIN: 'http://127.0.0.1:8090',
   OIDC_ISSUER_URL: 'http://localhost:8180/default',
   OIDC_CLIENT_ID: 'client',
   OIDC_CLIENT_SECRET: 'a-sufficiently-long-secret',
@@ -44,6 +45,7 @@ describe('loadConfig', () => {
         REDIS_URL: 'rediss://cache:6380',
         CORS_ALLOWED_ORIGINS: 'https://studio.example.com',
         PUBLIC_APP_ORIGIN: 'https://studio.example.com',
+        PREVIEW_ORIGIN: 'https://preview.example-cdn.net',
         OIDC_ISSUER_URL:
           'https://login.microsoftonline.com/7d0c3a2e-0f4e-4b8a-9a35-1f6a2b3c4d5e/v2.0',
         LOCAL_KEK: undefined,
@@ -66,6 +68,7 @@ describe('loadConfig', () => {
         REDIS_URL: 'rediss://cache:6380',
         CORS_ALLOWED_ORIGINS: 'https://studio.example.com',
         PUBLIC_APP_ORIGIN: 'https://studio.example.com',
+        PREVIEW_ORIGIN: 'https://preview.example-cdn.net',
         OIDC_ISSUER_URL:
           'https://login.microsoftonline.com/7d0c3a2e-0f4e-4b8a-9a35-1f6a2b3c4d5e/v2.0',
       }),
@@ -81,6 +84,7 @@ describe('loadConfig', () => {
         REDIS_URL: 'rediss://cache:6380',
         CORS_ALLOWED_ORIGINS: 'https://studio.example.com',
         PUBLIC_APP_ORIGIN: 'https://studio.example.com',
+        PREVIEW_ORIGIN: 'https://preview.example-cdn.net',
         OIDC_ISSUER_URL: 'https://evil.example.com/default',
       }),
     ).toThrow(/OIDC_ISSUER_URL/);

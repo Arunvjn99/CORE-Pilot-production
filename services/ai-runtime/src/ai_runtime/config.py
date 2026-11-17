@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     # Egress (docs/security/provider-endpoint-ssrf.md).
     llm_endpoint_allowed_private_hosts: str = ""
     provider_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
+    design_timeout_seconds: float = Field(default=180.0, gt=0, le=900)
+
+    # LangSmith (decision R4): off by default; traces contain prompts and designs.
+    langsmith_tracing: bool = False
+    langsmith_api_key: str | None = None
+    langsmith_endpoint: str = "https://eu.api.smith.langchain.com"
+    langsmith_project: str = "core-studio"
 
     @property
     def allowed_callers(self) -> tuple[str, ...]:

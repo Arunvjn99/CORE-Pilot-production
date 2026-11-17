@@ -4,6 +4,7 @@ from fastapi import FastAPI
 
 from ai_runtime.config import Settings, get_settings
 from ai_runtime.correlation import correlation_middleware
+from ai_runtime.design.router import router as design_router
 from ai_runtime.errors import register_error_handlers
 from ai_runtime.gateway.router import router as gateway_router
 from ai_runtime.health import router as health_router
@@ -26,6 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(gateway_router)
+    app.include_router(design_router)
     app.dependency_overrides[get_settings] = lambda: settings
     configure_tracing(app, settings)
     return app

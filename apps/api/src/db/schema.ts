@@ -364,6 +364,8 @@ export const projects = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     lastOpenedAt: timestamp('last_opened_at', { withTimezone: true }),
+    /** Design system the project's DESIGN.md was created from (the repo copy is the source). */
+    designSystemSlug: text('design_system_slug'),
   },
   (t) => [
     index('projects_org_status_idx').on(t.organizationId, t.status, t.updatedAt),
@@ -454,5 +456,119 @@ export const projectCheckpoints = pgTable(
     uniqueIndex('project_checkpoints_commit_idx').on(t.projectId, t.commitSha),
     index('project_checkpoints_project_time_idx').on(t.projectId, t.createdAt),
     tenantIsolation('project_checkpoints'),
+  ],
+).enableRLS();
+
+// ---------------- Studio v2: agents, design systems, generation runs ----------------
+
+/** Team-owned AGENT.md versions. Version 0 is never stored: it means "shipped default". */
+export const agentDefinitions = pgTable(
+  'agent_definitions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    agentKey: text('agent_key').notNull(),
+    version: integer('version').notNull(),
+    instructions: text('instructions').notNull(),
+    model: text('model'),
+    enabled: boolean('enabled').notNull().default(true),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('agent_definitions_version_idx').on(t.organizationId, t.agentKey, t.version),
+    check('agent_definitions_key', sql`agent_key in ('orchestrator','ux','ui','reviewer')`),
+    check('agent_definitions_version_positive', sql`version > 0`),
+    tenantIsolation('agent_definitions'),
+  ],
+).enableRLS();
+
+/** Team-owned DESIGN.md + tokens.css versions (customised shipped systems or custom ones). */
+export const designSystemVersions = pgTable(
+  'design_system_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    slug: text('slug').notNull(),
+    version: integer('version').notNull(),
+    name: text('name').notNull(),
+    designMd: text('design_md').notNull(),
+    tokensCss: text('tokens_css').notNull(),
+    custom: boolean('custom').notNull(),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('design_system_versions_idx').on(t.organizationId, t.slug, t.version),
+    check('design_system_versions_version_positive', sql`version > 0`),
+    tenantIsolation('design_system_versions'),
+  ],
+).enableRLS();
+
+export const runStatus = pgEnum('run_status', ['running', 'succeeded', 'failed']);
+
+export const generationRuns = pgTable(
+  'generation_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull(),
+    projectId: uuid('project_id').notNull(),
+    status: runStatus('status').notNull().default('running'),
+    prompt: text('prompt').notNull(),
+    title: text('title'),
+    errorCode: text('error_code'),
+    provider: text('provider'),
+    agentVersions: jsonb('agent_versions').$type<Record<string, number>>().notNull().default({}),
+    designSystem: jsonb('design_system').$type<{ slug: string | null; version: number }>(),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    screens: integer('screens').notNull().default(0),
+    reviewScore: integer('review_score'),
+    review: jsonb('review').$type<unknown[]>().notNull().default([]),
+    traced: boolean('traced').notNull().default(false),
+    checkpointId: uuid('checkpoint_id'),
+    startedBy: uuid('started_by').references(() => users.id, { onDelete: 'set null' }),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.projectId, t.organizationId],
+      foreignColumns: [projects.id, projects.organizationId],
+      name: 'generation_runs_project_fk',
+    }).onDelete('cascade'),
+    index('generation_runs_org_time_idx').on(t.organizationId, t.startedAt),
+    index('generation_runs_project_time_idx').on(t.projectId, t.startedAt),
+    tenantIsolation('generation_runs'),
+  ],
+).enableRLS();
+
+export const runSteps = pgTable(
+  'run_steps',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    runId: uuid('run_id')
+      .notNull()
+      .references(() => generationRuns.id, { onDelete: 'cascade' }),
+    organizationId: uuid('organization_id').notNull(),
+    seq: integer('seq').notNull(),
+    agentKey: text('agent_key').notNull(),
+    label: text('label').notNull(),
+    status: runStatus('status').notNull(),
+    model: text('model'),
+    inputTokens: integer('input_tokens').notNull().default(0),
+    outputTokens: integer('output_tokens').notNull().default(0),
+    durationMs: integer('duration_ms'),
+    errorCode: text('error_code'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('run_steps_seq_idx').on(t.runId, t.seq),
+    index('run_steps_org_time_idx').on(t.organizationId, t.createdAt),
+    tenantIsolation('run_steps'),
   ],
 ).enableRLS();
