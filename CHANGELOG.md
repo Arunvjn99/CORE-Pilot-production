@@ -2,7 +2,15 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-17 · Studio API integration tests and two fixes they found
+
+- **Tests:** 27 new API integration tests for the studio module (`apps/api/test/integration/studio.int.test.ts`): agent and design-system versioning, stale-version refusals, revert, required agents, project DESIGN.md apply/update with `STALE_REVISION`, design runs end to end through the real AI runtime (fake Ollama `/v1/chat/completions` answering by agent role), fix round, disabled agent, invalid TSX refused, provider outage without upstream leakage, one run per project, SSE events, canvas source edits incl. refusals, metrics, team isolation through the API and RLS, archived projects. Integration total **143/143**, on a fresh database and again on the same database.
+- **Fix — run events stream:** the SSE endpoint read from a Redis connection that was never connected (`lazyConnect` is inherited, offline queue disabled), so every stream failed; the error then hit the JSON error filter after headers were sent. The reader now connects before headers are sent and later errors end the stream cleanly.
+- **Fix — unchanged screens:** a run that regenerated exactly the current screens failed with `save_failed` (checkpoint refused "no changes"). It now succeeds without a new checkpoint.
+- **Test fix:** a credentials test depended on data left by earlier runs (the admin's active team); it now selects the team explicitly.
+
 ### 2026-11-17 · Studio frontend and preview runtime
+
 - **Studio** (`/projects/:id`): AI agents chat with live run timeline (SSE), infinite canvas (pan, zoom to cursor, fit, desktop/tablet/mobile frames, numbered storyboard), live React screens, element selection, Figma-style Design panel (text, layout/auto-layout, spacing, size, typography, fill, border, radius, shadow, opacity, raw classes) writing back to source, Prototype tab (on-click navigation, flow list, Play mode), Verify tab, project design system switcher + DESIGN.md editor, checkpoints.
 - **Settings → Agents** (AGENT.md editor, model override, enable/disable, version history, restore, reset) and **Settings → Design systems** (DESIGN.md + tokens.css editor, colour swatches, custom systems).
 - **Metrics** dashboard: runs, screens, tokens, review score, run time; by agent, model, day, project; failure causes.

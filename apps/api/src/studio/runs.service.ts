@@ -21,6 +21,9 @@ import { DESIGN_MD_PATH, StudioService, TOKENS_PATH } from './studio.service.js'
 
 const conflict = (code: string, message: string) => new ConflictException({ code, message });
 const STREAM_TTL_SECONDS = 3600;
+const isNothingToSave = (error: unknown) =>
+  error instanceof ConflictException &&
+  (error.getResponse() as { code?: string }).code === 'NOTHING_TO_SAVE';
 const streamKey = (runId: string) => `run:${runId}:events`;
 const str = (value: unknown, fallback = ''): string =>
   typeof value === 'string' ? value : fallback;
@@ -340,14 +343,19 @@ export class RunsService {
         : await this.repositories.revision(tx, projectId);
       let checkpointId: string | null = null;
       if (files.length) {
-        const checkpoint = await this.repositories.checkpoint(
-          tx,
-          actor,
-          projectId,
-          `AI: ${(title ?? 'Design run').slice(0, 150)}`,
-          'manual',
-        );
-        checkpointId = checkpoint.id;
+        try {
+          const checkpoint = await this.repositories.checkpoint(
+            tx,
+            actor,
+            projectId,
+            `AI: ${(title ?? 'Design run').slice(0, 150)}`,
+            'manual',
+          );
+          checkpointId = checkpoint.id;
+        } catch (error) {
+          // The run produced exactly the current screens: nothing new to checkpoint, not a failure.
+          if (!isNothingToSave(error)) throw error;
+        }
       }
       await tx
         .update(projects)
@@ -466,8 +474,19 @@ export class RunsService {
     return (result[0]?.[1] ?? []).map(([id, fields]) => ({ id, data: fields[1] ?? '{}' }));
   }
 
-  duplicateRedis(): Redis {
-    return this.redis.duplicate();
+  /**
+   * A dedicated connection for blocking reads (XREAD BLOCK would stall the shared client). The
+   * shared client is lazy and never queues offline, so the duplicate must be connected first.
+   */
+  async openReader(): Promise<Redis> {
+    const reader = this.redis.duplicate();
+    try {
+      await reader.connect();
+    } catch (error) {
+      reader.disconnect();
+      throw error;
+    }
+    return reader;
   }
 
   /** Page ids for the run's routes (studio focuses new screens). */

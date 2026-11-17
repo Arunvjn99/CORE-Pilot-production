@@ -274,6 +274,9 @@ describe('personal credentials', () => {
     );
     expect((await listFor(designer)).some((r) => r.id === created.id)).toBe(true);
     expect((await listFor(owner)).some((r) => r.id === created.id)).toBe(false);
+    // Even a company admin who owns the team (as its creator) cannot see a member's personal key.
+    // The active team is explicit: on a fresh database the admin signed in before any team existed.
+    await mutate(app, 'post', `/api/v1/orgs/${teamA}/activate`, admin).expect(204);
     expect((await listFor(admin)).some((r) => r.id === created.id)).toBe(false);
     await mutate(app, 'delete', `/api/v1/llm/credentials/${created.id}`, owner).expect(404);
 

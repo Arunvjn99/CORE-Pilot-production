@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   Inject,
+  Logger,
   Param,
   ParseUUIDPipe,
   Post,
@@ -54,6 +55,8 @@ const slugPipe = new ZodPipe(designSystemSlugSchema);
 @ApiTags('studio')
 @Controller({ version: '1' })
 export class StudioController {
+  private readonly logger = new Logger(StudioController.name);
+
   constructor(
     private readonly library: LibraryService,
     private readonly studio: StudioService,
@@ -250,12 +253,13 @@ export class StudioController {
     @Param('runId', ParseUUIDPipe) runId: string,
   ): Promise<void> {
     await this.runs.assertVisible(auth, id, runId);
+    // Connect before sending headers so a Redis outage is still a normal error response.
+    const reader = await this.runs.openReader();
     res.status(200);
     res.setHeader('content-type', 'text/event-stream; charset=utf-8');
     res.setHeader('cache-control', 'no-cache, no-transform');
     res.setHeader('x-accel-buffering', 'no');
     res.flushHeaders();
-    const reader = this.runs.duplicateRedis();
     const connection = { closed: false };
     req.on('close', () => {
       connection.closed = true;
@@ -277,6 +281,10 @@ export class StudioController {
         }
         if (finished) break;
       }
+    } catch (error) {
+      // Headers are already sent: the error filter cannot answer any more. The client reconnects
+      // (EventSource retries) or falls back to polling the run.
+      this.logger.warn({ err: error, runId }, 'Run event stream interrupted');
     } finally {
       reader.disconnect();
       res.end();
