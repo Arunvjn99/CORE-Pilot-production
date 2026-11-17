@@ -1,5 +1,5 @@
 import type { Permission, SessionResponse } from '@core-studio/contracts';
-import { FolderKanban, Settings } from 'lucide-react';
+import { BarChart3, FolderKanban, Settings } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router';
 import { hasPermission } from '../features/auth/permissions';
@@ -18,6 +18,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: <FolderKanban size={18} />,
     permission: 'projects:read',
   },
+  { to: '/metrics', label: 'Metrics', icon: <BarChart3 size={18} />, permission: 'projects:read' },
   { to: '/settings', label: 'Settings', icon: <Settings size={18} />, permission: 'members:read' },
 ];
 

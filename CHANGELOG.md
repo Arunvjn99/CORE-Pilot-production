@@ -2,6 +2,12 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-17 · Studio frontend and preview runtime
+- **Studio** (`/projects/:id`): AI agents chat with live run timeline (SSE), infinite canvas (pan, zoom to cursor, fit, desktop/tablet/mobile frames, numbered storyboard), live React screens, element selection, Figma-style Design panel (text, layout/auto-layout, spacing, size, typography, fill, border, radius, shadow, opacity, raw classes) writing back to source, Prototype tab (on-click navigation, flow list, Play mode), Verify tab, project design system switcher + DESIGN.md editor, checkpoints.
+- **Settings → Agents** (AGENT.md editor, model override, enable/disable, version history, restore, reset) and **Settings → Design systems** (DESIGN.md + tokens.css editor, colour swatches, custom systems).
+- **Metrics** dashboard: runs, screens, tokens, review score, run time; by agent, model, day, project; failure causes.
+- **Preview runtime** (`apps/preview`): separate-origin static app; compiles TSX in the browser with source locations; exact-origin postMessage protocol; strict CSP; new `preview` Docker image and Compose service.
+
 ### 2026-11-17 · Backend foundation for the v2 studio
 
 - **Plan:** `docs/development/v2-rebaseline-plan.md` — reuse open-codesign (MIT), dsh-design-studio (MIT), codexdesign (GPL, UX ideas only) and the POC agents + CORE 2.0 design system.

@@ -93,6 +93,8 @@ services:
       CREDENTIAL_KEK_PROVIDER: local
       LOCAL_KEK: ${LOCAL_KEK:?set in .env}
       # Project repositories (Azure: Azure Files share mounted only into the API).
+      PREVIEW_ORIGIN: ${PREVIEW_ORIGIN:-http://127.0.0.1:8090}
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
       REPO_ROOT: /data/repos
       BUNDLE_ROOT: /data/bundles
     volumes:
@@ -122,6 +124,11 @@ services:
       SERVICE_AUTH_AUDIENCE: api://core-ai-runtime/.default
       SERVICE_AUTH_ALLOWED_CALLERS: ${OIDC_CLIENT_ID:-core-studio-local}
       LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS: ${LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS:-}
+      # LangSmith (decision R4): off until the company approves where traces go.
+      LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      LANGSMITH_API_KEY: ${LANGSMITH_API_KEY:-}
+      LANGSMITH_ENDPOINT: ${LANGSMITH_ENDPOINT:-https://eu.api.smith.langchain.com}
+      LANGSMITH_PROJECT: ${LANGSMITH_PROJECT:-core-studio}
     # Lets a self-hosted Ollama on the developer machine be reached as host.docker.internal.
     extra_hosts: ['host.docker.internal:host-gateway']
     depends_on:
@@ -137,8 +144,19 @@ services:
     tmpfs: ['/tmp:uid=101,gid=101', '/etc/nginx/conf.d:uid=101,gid=101']
     environment:
       API_UPSTREAM: http://api:3000
+      PREVIEW_ORIGIN: ${PREVIEW_ORIGIN:-http://127.0.0.1:8090}
     ports: ['127.0.0.1:${WEB_HOST_PORT:-8080}:8080']
     depends_on: [api]
+
+  # Preview runtime on a separate site (127.0.0.1 vs the studio's localhost). Static files only.
+  preview:
+    image: core-studio/preview:${IMAGE_TAG:-local}
+    build: { context: ., dockerfile: infrastructure/docker/preview.Dockerfile }
+    <<: *hardened
+    tmpfs: ['/tmp:uid=101,gid=101', '/etc/nginx/conf.d:uid=101,gid=101']
+    environment:
+      STUDIO_ORIGIN: ${PUBLIC_APP_ORIGIN:-http://localhost:8080}
+    ports: ['127.0.0.1:${PREVIEW_HOST_PORT:-8090}:8090']
 
 volumes:
   pgdata:

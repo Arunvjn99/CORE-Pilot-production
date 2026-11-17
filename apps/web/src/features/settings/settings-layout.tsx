@@ -7,6 +7,7 @@ import { hasPermission } from '../auth/permissions';
 const TABS: { to: string; label: string; permission: Permission }[] = [
   { to: 'members', label: 'Members', permission: 'members:read' },
   { to: 'ai-providers', label: 'AI providers', permission: 'providers:read' },
+  { to: 'agents', label: 'Agents', permission: 'projects:read' },
   { to: 'design-systems', label: 'Design systems', permission: 'projects:read' },
 ];
 
@@ -17,7 +18,7 @@ export function SettingsLayout() {
     <div>
       <PageHeader
         title="Settings"
-        description="Manage your team, AI providers and design systems."
+        description="Manage your team, AI provider key, agents and design systems."
       />
       <nav aria-label="Settings" className="mb-6 border-b border-border">
         <ul className="flex gap-1">

@@ -20,6 +20,6 @@ RUN apk upgrade --no-cache && apk del --no-cache curl
 USER 101
 COPY infrastructure/docker/nginx/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
-# Only API_UPSTREAM is substituted; nginx's own $variables are left intact.
-ENV NGINX_ENVSUBST_FILTER=^API_UPSTREAM$
+# Only API_UPSTREAM and PREVIEW_ORIGIN are substituted; nginx's own $variables are left intact.
+ENV NGINX_ENVSUBST_FILTER=^(API_UPSTREAM|PREVIEW_ORIGIN)$
 EXPOSE 8080

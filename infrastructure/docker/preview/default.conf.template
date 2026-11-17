@@ -1,0 +1,35 @@
+server_tokens off;
+
+# Preview origin (PREVIEW_SECURITY_MODEL.md). Serves only the static preview runtime. It must be a
+# different site from the studio. Screen code runs here, so the CSP blocks all network access and
+# allows framing only by the studio origin.
+server {
+  listen 8090;
+  root /usr/share/nginx/html;
+
+  set $csp "default-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors ${STUDIO_ORIGIN}; base-uri 'none'; form-action 'none'; object-src 'none'";
+
+  location = /config.json {
+    default_type application/json;
+    add_header Cache-Control "no-store" always;
+    add_header Content-Security-Policy $csp always;
+    return 200 '{"studioOrigin":"${STUDIO_ORIGIN}"}';
+  }
+
+  location /assets/ {
+    add_header Cache-Control "public, max-age=31536000, immutable" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Cross-Origin-Resource-Policy "same-origin" always;
+    try_files $uri =404;
+  }
+
+  location / {
+    add_header Cache-Control "no-store" always;
+    add_header Content-Security-Policy $csp always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header X-Robots-Tag "noindex" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+    try_files $uri /index.html;
+  }
+}

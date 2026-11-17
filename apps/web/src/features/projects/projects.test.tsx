@@ -9,7 +9,6 @@ import { applyTheme, setTheme } from '../../lib/theme';
 import { json, makeSession } from '../../test-fixtures';
 import { SESSION_QUERY_KEY } from '../auth/use-session';
 import { ProjectDashboard, timeAgo } from './project-dashboard';
-import { WorkspaceRoute } from './workspace/workspace-layout';
 
 const PROJECT_ID = '77777777-7777-4777-8777-777777777777';
 const HOME_ID = '88888888-8888-4888-8888-888888888888';
@@ -62,13 +61,9 @@ function renderAt(path: string, session = WRITER) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(SESSION_QUERY_KEY, session);
   setCsrfToken('csrf');
-  const router = createMemoryRouter(
-    [
-      { path: '/projects', element: <ProjectDashboard /> },
-      { path: '/projects/:projectId/:section?', element: <WorkspaceRoute /> },
-    ],
-    { initialEntries: [path] },
-  );
+  const router = createMemoryRouter([{ path: '/projects', element: <ProjectDashboard /> }], {
+    initialEntries: [path],
+  });
   render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
@@ -132,7 +127,7 @@ describe('ProjectDashboard', () => {
     expect(within(card).getByText('2 pages')).toBeInTheDocument();
     expect(within(card).getByRole('link', { name: 'Checkout' })).toHaveAttribute(
       'href',
-      `/projects/${PROJECT_ID}/canvas`,
+      `/projects/${PROJECT_ID}`,
     );
     expect(screen.getByRole('heading', { name: 'Recently opened' })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Search projects'), 'zzz');
@@ -156,7 +151,7 @@ describe('ProjectDashboard', () => {
     await userEvent.type(within(dialog).getByLabelText('Project name'), ' Checkout ');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create project' }));
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(`/projects/${PROJECT_ID}/canvas`);
+      expect(router.state.location.pathname).toBe(`/projects/${PROJECT_ID}`);
     });
     expect(body).toEqual({ name: 'Checkout', description: '' });
   });
@@ -177,143 +172,5 @@ describe('ProjectDashboard', () => {
     await waitFor(() => {
       expect(body).toEqual({ status: 'archived', expectedUpdatedAt: now });
     });
-  });
-});
-
-describe('Workspace', () => {
-  it('shows sections, pages and the selected page', async () => {
-    const fetchMock = stubApi(workspaceRoutes());
-    renderAt(`/projects/${PROJECT_ID}/canvas?page=${PRICING_ID}`);
-    expect(await screen.findByRole('heading', { name: 'Checkout', level: 1 })).toBeInTheDocument();
-    const nav = screen.getAllByRole('navigation', { name: 'Workspace' })[0] as HTMLElement;
-    for (const label of [
-      'Visual canvas',
-      'Code editor',
-      'AI assistant',
-      'Design system',
-      'Project settings',
-    ])
-      expect(within(nav).getByRole('link', { name: label })).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: 'Pricing', level: 2 })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Pricing/, current: 'page' })).toBeInTheDocument();
-    expect(screen.getByText('Not available yet · slices 2.6–2.7')).toBeInTheDocument();
-    expect(screen.getByRole('complementary', { name: 'AI assistant' })).toBeInTheDocument();
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        `/api/v1/projects/${PROJECT_ID}/open`,
-        expect.objectContaining({ method: 'POST' }),
-      );
-    });
-  });
-
-  it('moves between pages with the arrow keys', async () => {
-    stubApi(workspaceRoutes());
-    renderAt(`/projects/${PROJECT_ID}/canvas`);
-    const home = await screen.findByRole('link', { name: /Home/ });
-    home.focus();
-    await userEvent.keyboard('{ArrowDown}');
-    expect(screen.getByRole('link', { name: /Pricing/ })).toHaveFocus();
-    await userEvent.keyboard('{ArrowDown}');
-    expect(home).toHaveFocus();
-  });
-
-  it('adds a page with a suggested route', async () => {
-    let body: unknown;
-    stubApi(
-      workspaceRoutes({
-        [`POST /api/v1/projects/${PROJECT_ID}/pages`]: (init) => {
-          body = JSON.parse(init?.body as string);
-          return json(
-            201,
-            page('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'About Us', '/about-us', 2),
-          );
-        },
-      }),
-    );
-    renderAt(`/projects/${PROJECT_ID}/canvas`);
-    await userEvent.click(
-      (await screen.findAllByRole('button', { name: 'Add page' }))[0] as HTMLElement,
-    );
-    const dialog = await screen.findByRole('dialog', { name: 'Add page' });
-    await userEvent.type(within(dialog).getByLabelText('Page name'), 'About Us');
-    expect(within(dialog).getByLabelText('Route')).toHaveValue('/about-us');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Add page' }));
-    await waitFor(() => {
-      expect(body).toEqual({ name: 'About Us', route: '/about-us' });
-    });
-  });
-
-  it('asks for confirmation before deleting a page', async () => {
-    const remove = vi.fn(() => new Response(null, { status: 204 }));
-    stubApi(
-      workspaceRoutes({ [`DELETE /api/v1/projects/${PROJECT_ID}/pages/${PRICING_ID}`]: remove }),
-    );
-    renderAt(`/projects/${PROJECT_ID}/canvas`);
-    await userEvent.click(
-      (
-        await screen.findAllByRole('button', { name: 'Actions for page Pricing' })
-      )[0] as HTMLElement,
-    );
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }));
-    const confirm = await screen.findByRole('alertdialog', { name: 'Delete page “Pricing”?' });
-    expect(remove).not.toHaveBeenCalled();
-    await userEvent.click(within(confirm).getByRole('button', { name: 'Delete page' }));
-    await waitFor(() => {
-      expect(remove).toHaveBeenCalled();
-    });
-  });
-
-  it('is read-only for viewers and for archived projects', async () => {
-    stubApi(workspaceRoutes());
-    renderAt(`/projects/${PROJECT_ID}/canvas`, VIEWER);
-    await screen.findByRole('link', { name: /Pricing/ });
-    expect(screen.queryByRole('button', { name: 'Add page' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /Actions for page/ })).toBeNull();
-  });
-
-  it('shows archived projects as read-only', async () => {
-    stubApi(
-      workspaceRoutes({
-        [`GET /api/v1/projects/${PROJECT_ID}`]: () => json(200, { ...project, status: 'archived' }),
-        [`POST /api/v1/projects/${PROJECT_ID}/open`]: () =>
-          json(200, { ...project, status: 'archived' }),
-      }),
-    );
-    renderAt(`/projects/${PROJECT_ID}/canvas`);
-    expect(await screen.findByText('Archived · read-only')).toBeInTheDocument();
-    await screen.findByRole('link', { name: /Pricing/ });
-    expect(screen.queryByRole('button', { name: 'Add page' })).toBeNull();
-  });
-
-  it('edits project details in Project settings', async () => {
-    let body: unknown;
-    stubApi(
-      workspaceRoutes({
-        [`PATCH /api/v1/projects/${PROJECT_ID}`]: (init) => {
-          body = JSON.parse(init?.body as string);
-          return json(200, { ...project, name: 'Checkout 2' });
-        },
-      }),
-    );
-    renderAt(`/projects/${PROJECT_ID}/settings`);
-    expect(await screen.findByRole('heading', { name: 'General' })).toBeInTheDocument();
-    const nameInput = screen.getByLabelText('Project name');
-    await userEvent.clear(nameInput);
-    await userEvent.type(nameInput, 'Checkout 2');
-    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-    await waitFor(() => {
-      expect(body).toEqual({
-        name: 'Checkout 2',
-        description: 'New checkout flow',
-        expectedUpdatedAt: now,
-      });
-    });
-    expect(screen.getByRole('button', { name: 'Archive project' })).toBeInTheDocument();
-  });
-
-  it('explains a missing project', async () => {
-    stubApi({});
-    renderAt(`/projects/${PROJECT_ID}/canvas`);
-    expect(await screen.findByRole('heading', { name: 'Project not found' })).toBeInTheDocument();
   });
 });

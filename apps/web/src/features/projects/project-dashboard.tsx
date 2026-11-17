@@ -35,7 +35,7 @@ export function timeAgo(iso: string, now = Date.now()): string {
   return 'just now';
 }
 
-export const workspacePath = (projectId: string) => `/projects/${projectId}/canvas`;
+export const workspacePath = (projectId: string) => `/projects/${projectId}`;
 
 export function ProjectDashboard() {
   const { data: session } = useSession();

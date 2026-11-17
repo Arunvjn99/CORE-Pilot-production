@@ -12,6 +12,7 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile --offline --filter @core-studio/api... \
  && pnpm --filter @core-studio/contracts run build \
  && pnpm --filter @core-studio/project-template run build \
+ && pnpm --filter @core-studio/studio-library run build \
  && pnpm --filter @core-studio/api run build \
  && pnpm --filter @core-studio/api deploy --prod --legacy /out
 

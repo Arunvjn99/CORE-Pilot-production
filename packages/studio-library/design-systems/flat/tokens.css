@@ -24,6 +24,6 @@
   --radius-lg: 8px;
   --shadow-1: none;
   --shadow-2: none;
-  --shadow-3: 0 2px 0 rgba(0,0,0,0.08);
+  --shadow-3: 0 2px 0 rgba(0, 0, 0, 0.08);
   --focus-ring: 0 0 0 2px #fdba74;
 }

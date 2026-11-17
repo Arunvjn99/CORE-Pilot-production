@@ -169,7 +169,12 @@ export const runEventSchema = z.discriminatedUnion('type', [
     outputTokens: z.number(),
     durationMs: z.number(),
   }),
-  z.object({ type: z.literal('step_failed'), agent: agentKeySchema, label: z.string(), code: z.string() }),
+  z.object({
+    type: z.literal('step_failed'),
+    agent: agentKeySchema,
+    label: z.string(),
+    code: z.string(),
+  }),
   z.object({
     type: z.literal('plan'),
     title: z.string(),
@@ -186,7 +191,9 @@ export const runEventSchema = z.discriminatedUnion('type', [
         route: z.string(),
         score: z.number(),
         pass: z.boolean(),
-        checks: z.array(z.object({ id: z.string(), pass: z.boolean(), note: z.string() })).default([]),
+        checks: z
+          .array(z.object({ id: z.string(), pass: z.boolean(), note: z.string() }))
+          .default([]),
         fixes: z.array(z.string()).default([]),
       }),
     ),
@@ -213,7 +220,13 @@ export const screensResponseSchema = z.object({
 export type ScreensResponse = z.infer<typeof screensResponseSchema>;
 export type Screen = z.infer<typeof screenSchema>;
 
-export const editableAttributeSchema = z.enum(['data-link', 'alt', 'placeholder', 'aria-label', 'title']);
+export const editableAttributeSchema = z.enum([
+  'data-link',
+  'alt',
+  'placeholder',
+  'aria-label',
+  'title',
+]);
 
 export const sourceEditSchema = z.object({
   path: z.string().max(300),
@@ -242,7 +255,9 @@ export const sourceEditResultSchema = z.object({ revision: z.number().int(), cod
 
 // ---------- metrics ----------
 
-export const metricsQuerySchema = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
+export const metricsQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(365).default(30),
+});
 export const metricsSchema = z.object({
   days: z.number().int(),
   totals: z.object({
@@ -265,9 +280,16 @@ export const metricsSchema = z.object({
       avgDurationMs: z.number().nullable(),
     }),
   ),
-  byModel: z.array(z.object({ model: z.string(), calls: z.number().int(), tokens: z.number().int() })),
+  byModel: z.array(
+    z.object({ model: z.string(), calls: z.number().int(), tokens: z.number().int() }),
+  ),
   byDay: z.array(
-    z.object({ day: z.string(), runs: z.number().int(), tokens: z.number().int(), failed: z.number().int() }),
+    z.object({
+      day: z.string(),
+      runs: z.number().int(),
+      tokens: z.number().int(),
+      failed: z.number().int(),
+    }),
   ),
   byProject: z.array(
     z.object({
