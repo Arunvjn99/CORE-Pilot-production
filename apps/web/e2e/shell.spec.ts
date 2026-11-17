@@ -68,7 +68,7 @@ test('admin manages a team from the product shell', async ({ browser }) => {
   await page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click();
   await expect(page.getByRole('cell', { name: colleagueName, exact: true })).toHaveCount(0);
 
-  // Other settings tabs show honest empty states
+  // Other settings tabs
   await page
     .getByRole('navigation', { name: 'Settings' })
     .getByRole('link', { name: 'AI providers' })
@@ -78,7 +78,7 @@ test('admin manages a team from the product shell', async ({ browser }) => {
     .getByRole('navigation', { name: 'Settings' })
     .getByRole('link', { name: 'Design systems' })
     .click();
-  await expect(page.getByRole('heading', { name: 'No design systems registered' })).toBeVisible();
+  await expect(page.getByText('CORE 2.0').first()).toBeVisible();
   await expectAccessible(page);
 
   await page.goto('/no/such/page');

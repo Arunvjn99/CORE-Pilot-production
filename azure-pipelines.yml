@@ -62,7 +62,10 @@ stages:
             inputs: { version: $(NODE_VERSION) }
           - script: corepack enable && pnpm install --frozen-lockfile
             displayName: Install
-          - script: ./scripts/init-local-env.sh
+          - script: |
+              ./scripts/init-local-env.sh
+              # The studio E2E serves an Ollama-compatible fake model from the agent (host.docker.internal).
+              sed -i 's/^LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS=$/LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS=host.docker.internal/' .env
             displayName: Generate ephemeral CI secrets (.env, never published)
           - script: docker compose build
             displayName: Build production images

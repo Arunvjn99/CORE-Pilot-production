@@ -4,11 +4,22 @@ import { defineConfig, devices } from '@playwright/test';
 const baseURL = process.env['E2E_BASE_URL'];
 if (!baseURL) throw new Error('E2E_BASE_URL is required (e.g. http://localhost:8080)');
 
+const chromiumPath = process.env['E2E_CHROMIUM_PATH'];
+
 export default defineConfig({
   testDir: './e2e',
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 1 : 0,
   reporter: [['list'], ['junit', { outputFile: 'test-results/junit.xml' }]],
   use: { baseURL, trace: 'retain-on-failure' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // Optional: a preinstalled Chromium when the pinned Playwright browser cannot be downloaded.
+        ...(chromiumPath ? { launchOptions: { executablePath: chromiumPath } } : {}),
+      },
+    },
+  ],
 });

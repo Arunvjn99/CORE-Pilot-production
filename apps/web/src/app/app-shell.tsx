@@ -20,7 +20,7 @@ export function AppShell() {
       </a>
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2 md:px-6">
         <p className="text-base font-semibold">CORE AI Design Studio</p>
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 max-w-full items-center gap-3">
           <TeamSwitcher session={session} />
           <UserMenu session={session} />
         </div>

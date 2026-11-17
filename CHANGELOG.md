@@ -2,6 +2,16 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-17 · Studio E2E on the composed stack, and fixes it found
+
+- **E2E (`apps/web/e2e/studio.spec.ts`):** on the Docker Compose stack, the team owner connects the model, a designer creates a project, prompts the agent team, follows the live run, sees both screens render on the separate preview origin, edits a heading in the Design panel (written to source, survives reload), plays the prototype across screens, and checks metrics/agents/design systems. The model is an Ollama-compatible fake served by the test (`e2e/fake-llm.ts`); CI enables it with `LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS=host.docker.internal`. Screenshots in `docs/screenshots/v2/`.
+- **Updated specs** for the v2 studio (project pages now live in the studio's Pages tab; Settings → Design systems is no longer a placeholder).
+- **Fix:** pages added, renamed or deleted in the studio's Pages tab did not appear on the canvas until a reload.
+- **Fix:** choosing a page in the Pages tab now selects its screen and pans the canvas to it (it was ignored).
+- **Fix:** the header overflowed horizontally on phones when a team name was long (team picker now truncates).
+- `E2E_CHROMIUM_PATH` (optional) lets Playwright use a preinstalled Chromium.
+- E2E: **16/17** locally; the remaining test calls api.openai.com for real, which this sandbox's network blocks (unchanged; runs in CI).
+
 ### 2026-11-17 · Studio web unit tests; resilient run event stream
 
 - **Tests:** 70 new web unit tests (web total **100**): Tailwind class editing, preview frame origin/source/schema checks (never posts to `*`), Design panel source edits and refusals, chat panel run timeline, Settings → Agents and Design systems (versioning, stale conflicts, restore/reset, required agents, read-only), metrics page.

@@ -12,7 +12,7 @@ import { useSession } from '../auth/use-session';
 import { usePages, useProject, useProjectMutations } from '../projects/projects-api';
 import { PageList } from '../projects/workspace/page-list';
 import { SettingsSection } from '../projects/workspace/sections';
-import { type Camera, Canvas, type Device, DEVICES, fitCamera } from './canvas';
+import { type Camera, Canvas, type Device, DEVICES, fitCamera, focusCamera } from './canvas';
 import { ChatPanel } from './chat-panel';
 import { PreviewFrame } from './preview-frame';
 import { RightPanel } from './right-panel';
@@ -58,6 +58,16 @@ function Studio({
   const opened = useRef<string | null>(null);
   const fitted = useRef(false);
 
+  // Pages added, renamed or deleted in the Pages tab change the screens on the canvas.
+  const pagesVersion = pages.dataUpdatedAt;
+  const seenPages = useRef(0);
+  useEffect(() => {
+    if (!pagesVersion) return;
+    if (seenPages.current)
+      void client.invalidateQueries({ queryKey: studioKeys.screens(projectId) });
+    seenPages.current = pagesVersion;
+  }, [pagesVersion, client, projectId]);
+
   useEffect(() => {
     if (opened.current === projectId) return;
     opened.current = projectId;
@@ -76,6 +86,18 @@ function Studio({
       fit();
     }
   }, [screenList.length, fit]);
+
+  /** A page chosen in the Pages tab selects its screen and brings it into view. */
+  const focusPage = (pageId: string) => {
+    const index = screenList.findIndex((s) => s.pageId === pageId);
+    const target = screenList[index];
+    if (!target) return;
+    setSelection(null);
+    setClearKey((k) => k + 1);
+    setSelectedPath(target.filePath);
+    const rect = viewport.current?.getBoundingClientRect();
+    if (rect) setCamera((current) => focusCamera(index, device, rect, current));
+  };
 
   const checkpoint = useMutation({
     mutationFn: (message: string) =>
@@ -241,9 +263,7 @@ function Studio({
                   }
                   hrefFor={(pageId) => `/projects/${projectId}?page=${pageId}`}
                   canEdit={canWrite}
-                  onNavigate={() => {
-                    void client.invalidateQueries({ queryKey: studioKeys.screens(projectId) });
-                  }}
+                  onNavigate={focusPage}
                 />
               )}
             </Tabs.Content>

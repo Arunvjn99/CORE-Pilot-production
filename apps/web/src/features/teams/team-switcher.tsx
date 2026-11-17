@@ -8,10 +8,10 @@ export function TeamSwitcher({ session }: { session: SessionResponse }) {
   );
   if (teams.length === 0) return null;
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label className="flex min-w-0 items-center gap-2 text-sm">
       <span className="text-text-muted">Team</span>
       <select
-        className="rounded-md border border-border bg-surface px-2 py-1"
+        className="min-w-0 max-w-48 truncate rounded-md border border-border bg-surface px-2 py-1"
         value={session.activeOrganizationId ?? ''}
         disabled={activate.isPending}
         onChange={(event) => {

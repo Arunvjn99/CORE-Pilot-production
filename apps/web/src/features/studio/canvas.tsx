@@ -29,6 +29,18 @@ export interface Camera {
   zoom: number;
 }
 
+/** Pans (keeping the zoom) so frame `index` is centred horizontally in the viewport. */
+export function focusCamera(
+  index: number,
+  device: Device,
+  viewport: { width: number; height: number },
+  camera: Camera,
+): Camera {
+  const { width } = DEVICES[device];
+  const centre = (index * (width + GAP) + width / 2) * camera.zoom;
+  return { ...camera, x: viewport.width / 2 - centre };
+}
+
 /** Fits every frame in the viewport with a margin. */
 export function fitCamera(
   count: number,

@@ -119,7 +119,7 @@ export function PageList({
   currentPageId: string | null;
   hrefFor: (pageId: string) => string;
   canEdit: boolean;
-  onNavigate?: () => void;
+  onNavigate?: (pageId: string) => void;
 }) {
   const mutations = usePageMutations(teamId, projectId);
   const [addOpen, setAddOpen] = useState(false);
@@ -157,7 +157,7 @@ export function PageList({
               <Link
                 data-page-link
                 to={hrefFor(page.id)}
-                onClick={onNavigate}
+                onClick={() => onNavigate?.(page.id)}
                 aria-current={current ? 'page' : undefined}
                 className={`flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm focus-visible:outline-2 focus-visible:outline-accent ${current ? 'bg-accent/10 font-semibold text-accent' : 'hover:bg-surface-muted'}`}
               >

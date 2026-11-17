@@ -5,7 +5,7 @@ import { adminOid, expectAccessible, signIn } from './support';
 test.describe.configure({ mode: 'serial' });
 
 const ADMIN = { oid: adminOid, name: 'Company Admin' };
-const SCREENSHOTS = '../../docs/screenshots/slice-2.5';
+const SCREENSHOTS = '../../docs/screenshots/v2';
 
 async function ensureTeam(page: Page) {
   if (await page.getByLabel('Team name').isVisible()) {
@@ -32,11 +32,12 @@ test('acceptance: create a project, add pages, navigate and reopen with data per
   await expectAccessible(page);
   await create.getByRole('button', { name: 'Create project' }).click();
 
-  // Enter the workspace
-  await expect(page).toHaveURL(/\/projects\/[0-9a-f-]+\/canvas$/);
+  // Enter the studio; pages are managed in its Pages tab.
+  await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
   await expect(page.getByRole('heading', { name: projectName, level: 1 })).toBeVisible();
-  const sidebar = page.getByRole('complementary', { name: 'Project' });
-  await expect(sidebar.getByRole('link', { name: /Home/ })).toHaveAttribute('aria-current', 'page');
+  await page.getByRole('tab', { name: 'Pages' }).click();
+  const sidebar = page.getByRole('complementary', { name: 'Assistant and pages' });
+  await expect(sidebar.getByRole('link', { name: /Home/ })).toBeVisible();
 
   // Create pages
   for (const name of ['Cart', 'Payment Details']) {
@@ -49,15 +50,20 @@ test('acceptance: create a project, add pages, navigate and reopen with data per
   await expect(
     sidebar.getByRole('link', { name: /Payment Details.*\/payment-details/ }),
   ).toBeVisible();
+  // Each page is a screen on the canvas.
+  await expect(page.getByRole('region', { name: /^Screen \d+: Cart$/ })).toBeVisible();
 
   // Navigate between pages (mouse and keyboard)
   await sidebar.getByRole('link', { name: /Cart/ }).click();
-  await expect(page.getByRole('heading', { name: 'Cart', level: 2 })).toBeVisible();
   await expect(page).toHaveURL(/\?page=/);
+  await expect(sidebar.getByRole('link', { name: /Cart/ })).toHaveAttribute('aria-current', 'page');
   await sidebar.getByRole('link', { name: /Cart/ }).focus();
   await page.keyboard.press('ArrowDown');
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('heading', { name: 'Payment Details', level: 2 })).toBeVisible();
+  await expect(sidebar.getByRole('link', { name: /Payment Details/ })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
 
   // Rename a page
   await sidebar.getByRole('button', { name: 'Actions for page Payment Details' }).click();
@@ -67,19 +73,8 @@ test('acceptance: create a project, add pages, navigate and reopen with data per
   await rename.getByLabel('Route').fill('/payment');
   await rename.getByRole('button', { name: 'Save' }).click();
   await expect(sidebar.getByRole('link', { name: /Payment.*\/payment$/ })).toBeVisible();
-
-  // Workspace sections are honest about what is not built yet
-  await expect(page.getByText('Not available yet · slices 2.6–2.7')).toBeVisible();
   await expectAccessible(page);
   await page.screenshot({ path: `${SCREENSHOTS}/workspace-light.png` });
-  const nav = sidebar.getByRole('navigation', { name: 'Workspace' });
-  await nav.getByRole('link', { name: 'Code editor' }).click();
-  await expect(page.getByRole('heading', { name: 'Code editor' })).toBeVisible();
-  await nav.getByRole('link', { name: 'Design system' }).click();
-  await expect(page.getByText('Not available yet · Phase 5')).toBeVisible();
-  await nav.getByRole('link', { name: 'Project settings' }).click();
-  await expect(page.getByRole('heading', { name: 'General' })).toBeVisible();
-  await expectAccessible(page);
 
   // Delete a page with confirmation
   await sidebar.getByRole('button', { name: 'Actions for page Cart' }).click();
@@ -97,7 +92,8 @@ test('acceptance: create a project, add pages, navigate and reopen with data per
   await page.screenshot({ path: `${SCREENSHOTS}/dashboard-light.png`, fullPage: true });
   await card.getByRole('link', { name: projectName }).click();
   await page.reload();
-  const reopened = page.getByRole('complementary', { name: 'Project' });
+  await page.getByRole('tab', { name: 'Pages' }).click();
+  const reopened = page.getByRole('complementary', { name: 'Assistant and pages' });
   await expect(reopened.getByRole('link', { name: /Home/ })).toBeVisible();
   await expect(reopened.getByRole('link', { name: /Payment.*\/payment$/ })).toBeVisible();
   await expect(reopened.getByRole('link', { name: /Cart/ })).toHaveCount(0);
@@ -146,7 +142,7 @@ test('dark theme and tablet layout', async ({ browser }) => {
   await expectAccessible(page);
   await page.screenshot({ path: `${SCREENSHOTS}/dashboard-dark-tablet.png`, fullPage: true });
 
-  // Theme survives a reload; workspace sidebar becomes a drawer on tablet
+  // Theme survives a reload; the studio fits a tablet without horizontal scrolling.
   await page
     .getByRole('listitem')
     .filter({ hasText: 'Active' })
@@ -156,13 +152,8 @@ test('dark theme and tablet layout', async ({ browser }) => {
     .click();
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.getByRole('complementary', { name: 'Project' })).toBeHidden();
-  await page.getByRole('button', { name: 'Show navigation' }).click();
-  const drawer = page.getByRole('dialog');
-  await expect(drawer.getByRole('navigation', { name: 'Workspace' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Assistant and pages' })).toBeVisible();
   await expectAccessible(page);
-  await page.screenshot({ path: `${SCREENSHOTS}/workspace-dark-tablet-drawer.png` });
-  await page.keyboard.press('Escape');
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
   );
@@ -186,7 +177,7 @@ test('dark workspace on desktop', async ({ browser }) => {
     .getByRole('link')
     .first()
     .click();
-  await expect(page.getByRole('complementary', { name: 'AI assistant' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Assistant and pages' })).toBeVisible();
   await expectAccessible(page);
   await page.screenshot({ path: `${SCREENSHOTS}/workspace-dark-desktop.png` });
   await context.close();
