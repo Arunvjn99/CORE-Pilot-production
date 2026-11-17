@@ -264,7 +264,12 @@ export class StudioController {
     req.on('close', () => {
       connection.closed = true;
     });
-    let after = '0';
+    // Browsers resume with Last-Event-ID after a dropped connection: continue, don't replay.
+    const lastEventId = req.headers['last-event-id'];
+    let after =
+      typeof lastEventId === 'string' && /^\d{1,20}-\d{1,20}$/.test(lastEventId)
+        ? lastEventId
+        : '0';
     const deadline = Date.now() + (this.config.DESIGN_RUN_TIMEOUT_SECONDS + 120) * 1000;
     try {
       while (!connection.closed && Date.now() < deadline) {

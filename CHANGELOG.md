@@ -2,6 +2,12 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-17 · Studio web unit tests; resilient run event stream
+
+- **Tests:** 70 new web unit tests (web total **100**): Tailwind class editing, preview frame origin/source/schema checks (never posts to `*`), Design panel source edits and refusals, chat panel run timeline, Settings → Agents and Design systems (versioning, stale conflicts, restore/reset, required agents, read-only), metrics page.
+- **Fix — dropped run streams:** the API now resumes from `Last-Event-ID` instead of replaying the whole run on a browser reconnect (which duplicated the timeline); the studio stops waiting when the stream closes for good and shows that the result will appear under previous runs, instead of staying on "Agents are working…" forever. One new integration test (studio total **28**).
+- **Fix:** a failed run without an error code showed an empty alert; it now says "The run failed."
+
 ### 2026-11-17 · Studio API integration tests and two fixes they found
 
 - **Tests:** 27 new API integration tests for the studio module (`apps/api/test/integration/studio.int.test.ts`): agent and design-system versioning, stale-version refusals, revert, required agents, project DESIGN.md apply/update with `STALE_REVISION`, design runs end to end through the real AI runtime (fake Ollama `/v1/chat/completions` answering by agent role), fix round, disabled agent, invalid TSX refused, provider outage without upstream leakage, one run per project, SSE events, canvas source edits incl. refusals, metrics, team isolation through the API and RLS, archived projects. Integration total **143/143**, on a fresh database and again on the same database.

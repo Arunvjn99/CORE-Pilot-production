@@ -86,10 +86,13 @@ export function useRunEvents(projectId: string, runId: string | null, onDone: ()
     runId: string | null;
     events: RunEvent[];
     finished: boolean;
+    /** The stream closed for good before `done` (e.g. signed out, server gone). */
+    lost: boolean;
   }>({
     runId: null,
     events: [],
     finished: false,
+    lost: false,
   });
   const done = useRef(onDone);
   useEffect(() => {
@@ -111,20 +114,40 @@ export function useRunEvents(projectId: string, runId: string | null, onDone: ()
       const finished = event.type === 'done';
       setState((current) =>
         current.runId === runId
-          ? { runId, events: [...current.events, event], finished: current.finished || finished }
-          : { runId, events: [event], finished },
+          ? {
+              runId,
+              events: [...current.events, event],
+              finished: current.finished || finished,
+              lost: false,
+            }
+          : { runId, events: [event], finished, lost: false },
       );
       if (finished) {
         source.close();
         done.current();
       }
     };
+    // The browser reconnects by itself (resuming via Last-Event-ID) while readyState is CONNECTING.
+    // CLOSED means it gave up: stop waiting and refresh, so the run list shows the real outcome.
+    source.onerror = () => {
+      if (source.readyState !== EventSource.CLOSED) return;
+      setState((current) =>
+        current.runId === runId
+          ? { ...current, lost: !current.finished }
+          : { runId, events: [], finished: false, lost: true },
+      );
+      done.current();
+    };
     return () => {
       source.close();
     };
   }, [projectId, runId]);
   const current = state.runId === runId;
-  return { events: current ? state.events : [], finished: current && state.finished };
+  return {
+    events: current ? state.events : [],
+    finished: current && state.finished,
+    lost: current && state.lost,
+  };
 }
 
 export function useSourceEdit(projectId: string) {

@@ -135,13 +135,13 @@ export function ChatPanel({ projectId, canWrite }: { projectId: string; canWrite
   const runs = useRuns(projectId);
   const client = useQueryClient();
   const inputId = useId();
-  const { events, finished } = useRunEvents(projectId, runId, () => {
+  const { events, finished, lost } = useRunEvents(projectId, runId, () => {
     void client.invalidateQueries({ queryKey: studioKeys.screens(projectId) });
     void client.invalidateQueries({ queryKey: studioKeys.runs(projectId) });
     void client.invalidateQueries({ queryKey: ['projects'] });
   });
   const done = events.find((e) => e.type === 'done');
-  const running = runId !== null && !finished;
+  const running = runId !== null && !finished && !lost;
   const startError = start.error instanceof ApiError ? start.error : null;
 
   return (
@@ -166,7 +166,12 @@ export function ChatPanel({ projectId, canWrite }: { projectId: string; canWrite
             </p>
             <Timeline events={events} />
             {done?.type === 'done' && done.status === 'failed' && (
-              <ErrorMessage>{errorText(done.errorCode)}</ErrorMessage>
+              <ErrorMessage>{errorText(done.errorCode) ?? 'The run failed.'}</ErrorMessage>
+            )}
+            {lost && (
+              <ErrorMessage>
+                Lost the connection to this run. Its result will appear under previous runs.
+              </ErrorMessage>
             )}
           </section>
         )}

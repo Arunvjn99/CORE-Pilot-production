@@ -574,6 +574,47 @@ describe('design runs', () => {
     expect(checkpoints.some((c) => c.message === 'AI: Account area')).toBe(true);
   });
 
+  it('resume the event stream after a dropped connection instead of replaying it', async () => {
+    const [latest] = z
+      .array(runSchema)
+      .parse((await get(`/api/v1/projects/${projectId}/runs`, viewer).expect(200)).body);
+    if (!latest) throw new Error('no runs');
+    const readRaw = async (lastEventId?: string) => {
+      let req = get(`/api/v1/projects/${projectId}/runs/${latest.id}/events`, viewer);
+      if (lastEventId) req = req.set('Last-Event-ID', lastEventId);
+      const res = await req
+        .buffer(true)
+        .parse((response, callback) => {
+          let text = '';
+          response.setEncoding('utf8');
+          response.on('data', (chunk: string) => {
+            text += chunk;
+          });
+          response.on('end', () => {
+            callback(null, text);
+          });
+        })
+        .expect(200);
+      return (res.body as string)
+        .split('\n\n')
+        .filter((block) => block.startsWith('id: '))
+        .map((block) => {
+          const [idLine, dataLine] = block.split('\n');
+          return {
+            id: idLine?.slice(4) ?? '',
+            event: runEventSchema.parse(JSON.parse(dataLine?.slice(6) ?? '{}')),
+          };
+        });
+    };
+    const all = await readRaw();
+    const savedIndex = all.findIndex((e) => e.event.type === 'saved');
+    expect(savedIndex).toBeGreaterThan(0);
+    const resumed = await readRaw(all[savedIndex]?.id);
+    expect(resumed.map((e) => e.event.type)).toEqual(['done']);
+    // A malformed header is ignored (full replay), never passed to Redis.
+    expect(await readRaw('0-0; DROP')).toHaveLength(all.length);
+  });
+
   it('send failing screens back to the UI designer for one fix round', async () => {
     provider.calls.length = 0;
     provider.set({ passFirstReview: false });
