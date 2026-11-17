@@ -1,6 +1,8 @@
 import { expect, type Page, test } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { MODEL, startFakeLlm } from './fake-llm';
+import { readZip } from './zip';
 import { adminOid, completeIdpForm, expectAccessible, signIn } from './support';
 
 /**
@@ -167,6 +169,38 @@ test('designer prompts the agents, edits a screen and plays the prototype', asyn
   });
   await page.screenshot({ path: `${SCREENSHOTS}/studio-play.png` });
   await player.getByRole('button', { name: 'Close prototype' }).click();
+
+  // History: download the project as a runnable React app, then restore the generated version.
+  await page.getByRole('tab', { name: 'History' }).click();
+  const history = page.getByRole('region', { name: 'History' });
+  await expect(history.getByRole('listitem', { name: 'AI: Retirement sign-in' })).toBeVisible();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    history.getByRole('link', { name: 'Export current work (React project)' }).click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^retirement-[0-9a-f]{6}\.zip$/);
+  await download.saveAs('test-results/studio-export.zip');
+  const files = readZip(await readFile(await download.path()));
+  const prefix = download.suggestedFilename().replace(/\.zip$/, '');
+  expect(files.has(`${prefix}/package.json`)).toBe(true);
+  // The edited heading is in the export even though it was never checkpointed.
+  const home = [...files.entries()].find(
+    ([name, data]) =>
+      name.endsWith('.tsx') && data.toString('utf8').includes('Welcome to your plan'),
+  );
+  expect(home).toBeDefined();
+  await page.screenshot({ path: `${SCREENSHOTS}/studio-history.png` });
+
+  await history.getByRole('button', { name: 'Restore “AI: Retirement sign-in”' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Restore' }).click();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await expect(
+    page
+      .frameLocator('iframe[title="Preview of Home"]')
+      .getByRole('heading', { name: 'Welcome back' }),
+  ).toBeVisible({ timeout: 30_000 });
+  // The unsaved edit was kept as an automatic checkpoint before the restore.
+  await expect(history.getByRole('listitem', { name: 'Before restore (automatic)' })).toBeVisible();
 });
 
 test('metrics, agents and design systems reflect the run', async ({ page }) => {

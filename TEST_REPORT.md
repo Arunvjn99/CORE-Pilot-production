@@ -92,3 +92,15 @@ Defects found by E2E and fixed before commit: Project settings crashed because t
 Defects found by these tests and fixed: run event streams always failed (unconnected Redis reader); a run regenerating identical screens failed on the checkpoint; browser reconnects replayed the whole run; the studio waited forever on a dropped stream; empty error alert for failed runs without a code; Pages-tab changes did not reach the canvas and choosing a page was ignored; header overflow on phones with long team names; a credentials test depended on data from earlier runs.
 
 Environment notes (sandbox only, nothing committed): images were built from local base images that trust the sandbox proxy CA, with the OS-upgrade steps skipped because the Alpine/Debian mirrors are blocked; GHCR-hosted images (mock OIDC, uv) were rebuilt locally from the same versions on Maven Central/PyPI. CI builds the committed Dockerfiles unchanged.
+
+### V9a — history and export (2026-11-17)
+
+| Suite                           | Result                                                                                                                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint, typecheck, unit (`turbo`) | 21/21                                                                                                                                   |
+| API integration                 | **147/147** (3 new: export of current work incl. uncommitted edits and untouched git state, export of a checkpoint, refusals/isolation) |
+| Web unit                        | **104/104** (4 new: History panel)                                                                                                      |
+| E2E                             | 16/17 (studio journey now downloads the export and restores a checkpoint; the remaining failure is the sandbox-blocked OpenAI call)     |
+| Exported ZIP from the E2E run   | `npm install` + `npm run build` (tsc + vite) succeed                                                                                    |
+
+Defect found by E2E and fixed: the History panel hid Restore on the latest checkpoint, which is the way to discard unsaved edits.

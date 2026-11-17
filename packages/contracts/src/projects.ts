@@ -125,6 +125,11 @@ export const restoreCheckpointSchema = z.object({
   /** Save uncommitted work as a checkpoint before restoring (default). */
   safetyCheckpoint: z.boolean().default(true),
 });
+/** Export as a runnable Vite project: the current work (default) or a checkpoint. */
+export const exportProjectQuerySchema = z.object({
+  checkpointId: z.uuid().optional(),
+});
+
 export const checkpointListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });

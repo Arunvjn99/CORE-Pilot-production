@@ -438,6 +438,44 @@ export class ProjectsService {
     });
   }
 
+  /** Builds the project ZIP; the caller streams `file` and then calls `cleanup()`. */
+  exportProject(
+    auth: AuthContext,
+    projectId: string,
+    checkpointId: string | null,
+    correlationId: string,
+  ) {
+    return this.run(auth, async (tx, organizationId) => {
+      const project = await this.loadProject(tx, projectId);
+      await this.repositories.lock(tx, projectId);
+      const slug =
+        project.name
+          .toLowerCase()
+          .normalize('NFKD')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 60)
+          .replace(/-+$/, '') || 'project';
+      const archive = await this.repositories.exportArchive(
+        tx,
+        this.actor(auth, organizationId),
+        projectId,
+        checkpointId,
+        slug,
+      );
+      await this.audit.record(tx, {
+        organizationId,
+        actorId: auth.userId,
+        action: 'project.exported',
+        targetType: 'project',
+        targetId: projectId,
+        correlationId,
+        metadata: { checkpointId, source: archive.source },
+      });
+      return { ...archive, filename: `${slug}.zip` };
+    });
+  }
+
   restoreCheckpoint(
     auth: AuthContext,
     projectId: string,

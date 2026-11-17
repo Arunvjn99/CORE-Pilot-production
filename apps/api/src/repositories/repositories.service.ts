@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   ConflictException,
@@ -527,6 +527,48 @@ export class RepositoriesService {
       'restore',
       target.id,
     );
+  }
+
+  /**
+   * Builds a ZIP of the project as a runnable Vite app: the current working tree (default) or a
+   * checkpoint. The caller streams `file` and must call `cleanup()` afterwards.
+   */
+  async exportArchive(
+    tx: Database,
+    actor: RepoActor,
+    projectId: string,
+    checkpointId: string | null,
+    prefix: string,
+  ): Promise<{ file: string; source: string; cleanup: () => Promise<void> }> {
+    await this.ensureReady(tx, actor, projectId);
+    const repo = this.open(actor.organizationId, projectId);
+    let treeish: string;
+    if (checkpointId) {
+      const [target] = await tx
+        .select({ commitSha: projectCheckpoints.commitSha })
+        .from(projectCheckpoints)
+        .where(
+          and(eq(projectCheckpoints.id, checkpointId), eq(projectCheckpoints.projectId, projectId)),
+        );
+      if (!target) throw new NotFoundException('Checkpoint not found');
+      if (!(await repo.git.commitExists(target.commitSha)))
+        throw conflict('CHECKPOINT_MISSING', 'This checkpoint is no longer in the repository.');
+      treeish = target.commitSha;
+    } else {
+      treeish = '';
+    }
+    await mkdir(join(repo.dir, 'tmp'), { recursive: true });
+    const work = await mkdtemp(join(repo.dir, 'tmp', 'export-'));
+    const cleanup = () => rm(work, { recursive: true, force: true });
+    try {
+      if (!treeish) treeish = await repo.git.snapshotTree(join(work, 'index'));
+      const file = join(work, 'project.zip');
+      await repo.git.archiveZip(treeish, prefix, file);
+      return { file, source: treeish, cleanup };
+    } catch (error) {
+      await cleanup();
+      throw error;
+    }
   }
 
   /** Best-effort per-project backup bundle after each checkpoint (Blob upload: slice 2.6f). */

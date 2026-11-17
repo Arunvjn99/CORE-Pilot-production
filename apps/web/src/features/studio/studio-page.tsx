@@ -1,12 +1,22 @@
 import type { SelectedElement, SessionResponse } from '@core-studio/contracts';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Bookmark, Maximize, Minus, Play, Plus, Settings2, X } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  ArrowLeft,
+  Bookmark,
+  Download,
+  Maximize,
+  Minus,
+  Play,
+  Plus,
+  Settings2,
+  X,
+} from 'lucide-react';
 import { Dialog, Tabs } from 'radix-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router';
 import { Button, EmptyState, ErrorMessage } from '../../components/ui';
 import { UserMenu } from '../../app/user-menu';
-import { ApiError, apiSend } from '../../lib/api-client';
+import { ApiError } from '../../lib/api-client';
 import { hasPermission } from '../auth/permissions';
 import { useSession } from '../auth/use-session';
 import { usePages, useProject, useProjectMutations } from '../projects/projects-api';
@@ -16,7 +26,14 @@ import { type Camera, Canvas, type Device, DEVICES, fitCamera, focusCamera } fro
 import { ChatPanel } from './chat-panel';
 import { PreviewFrame } from './preview-frame';
 import { RightPanel } from './right-panel';
-import { studioKeys, useScreens, useStudioConfig } from './studio-api';
+import { HistoryPanel } from './history-panel';
+import {
+  exportUrl,
+  studioKeys,
+  useCheckpointMutations,
+  useScreens,
+  useStudioConfig,
+} from './studio-api';
 
 const panelTab =
   'flex-1 border-b-2 border-transparent px-3 py-2 text-sm text-text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-accent data-[state=active]:border-accent data-[state=active]:font-semibold data-[state=active]:text-text';
@@ -99,10 +116,7 @@ function Studio({
     if (rect) setCamera((current) => focusCamera(index, device, rect, current));
   };
 
-  const checkpoint = useMutation({
-    mutationFn: (message: string) =>
-      apiSend('POST', `/api/v1/projects/${projectId}/checkpoints`, { body: { message } }),
-  });
+  const checkpoint = useCheckpointMutations(projectId).save;
 
   if (project.isError) {
     const missing = project.error instanceof ApiError && project.error.status === 404;
@@ -205,6 +219,15 @@ function Studio({
               <Bookmark size={16} aria-hidden="true" />
             </button>
           )}
+          <a
+            href={exportUrl(projectId)}
+            download
+            className={iconButton}
+            aria-label="Export React project"
+            title="Export React project"
+          >
+            <Download size={16} aria-hidden="true" />
+          </a>
           <button
             type="button"
             className={iconButton}
@@ -248,6 +271,9 @@ function Studio({
               <Tabs.Trigger value="pages" className={panelTab}>
                 Pages
               </Tabs.Trigger>
+              <Tabs.Trigger value="history" className={panelTab}>
+                History
+              </Tabs.Trigger>
             </Tabs.List>
             <Tabs.Content value="chat" className="min-h-0 flex-1">
               <ChatPanel projectId={projectId} canWrite={canWrite} />
@@ -266,6 +292,9 @@ function Studio({
                   onNavigate={focusPage}
                 />
               )}
+            </Tabs.Content>
+            <Tabs.Content value="history" className="min-h-0 flex-1 overflow-y-auto p-3">
+              <HistoryPanel projectId={projectId} canWrite={canWrite} />
             </Tabs.Content>
           </Tabs.Root>
         </aside>

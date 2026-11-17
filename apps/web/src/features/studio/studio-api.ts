@@ -1,5 +1,6 @@
 import {
   agentDefinitionSchema,
+  checkpointSchema,
   type AgentKey,
   agentVersionSchema,
   type CreateDesignSystem,
@@ -33,7 +34,50 @@ export const studioKeys = {
   systems: (teamId: string) => ['studio', 'systems', teamId] as const,
   system: (teamId: string, slug: string) => ['studio', 'systems', teamId, slug] as const,
   metrics: (teamId: string, days: number) => ['studio', 'metrics', teamId, days] as const,
+  checkpoints: (projectId: string) => ['studio', 'checkpoints', projectId] as const,
 };
+
+/** Download URL of the project as a runnable Vite app (current work, or one checkpoint). */
+export const exportUrl = (projectId: string, checkpointId?: string) =>
+  `/api/v1/projects/${projectId}/export${checkpointId ? `?checkpointId=${checkpointId}` : ''}`;
+
+export function useCheckpoints(projectId: string) {
+  return useQuery({
+    queryKey: studioKeys.checkpoints(projectId),
+    queryFn: ({ signal }) =>
+      apiGet(`/api/v1/projects/${projectId}/checkpoints`, z.array(checkpointSchema), signal),
+  });
+}
+
+export function useCheckpointMutations(projectId: string) {
+  const client = useQueryClient();
+  // A restore changes every file: screens, design, pages and the history itself.
+  const refresh = () =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: studioKeys.checkpoints(projectId) }),
+      client.invalidateQueries({ queryKey: studioKeys.screens(projectId) }),
+      client.invalidateQueries({ queryKey: studioKeys.design(projectId) }),
+      client.invalidateQueries({ queryKey: ['projects'] }),
+    ]);
+  return {
+    save: useMutation({
+      mutationFn: (message: string) =>
+        apiSend('POST', `/api/v1/projects/${projectId}/checkpoints`, {
+          body: { message },
+          schema: checkpointSchema,
+        }),
+      onSuccess: () => client.invalidateQueries({ queryKey: studioKeys.checkpoints(projectId) }),
+    }),
+    restore: useMutation({
+      mutationFn: (checkpointId: string) =>
+        apiSend('POST', `/api/v1/projects/${projectId}/checkpoints/${checkpointId}/restore`, {
+          body: { safetyCheckpoint: true },
+          schema: checkpointSchema,
+        }),
+      onSuccess: refresh,
+    }),
+  };
+}
 
 export function useStudioConfig() {
   return useQuery({

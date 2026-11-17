@@ -46,7 +46,11 @@ export class Git {
     private readonly timeoutMs = 30_000,
   ) {}
 
-  run(args: readonly string[], identity?: { author: GitIdentity; committer: GitIdentity }) {
+  run(
+    args: readonly string[],
+    identity?: { author: GitIdentity; committer: GitIdentity },
+    extraEnv: Readonly<Record<string, string>> = {},
+  ) {
     const env: NodeJS.ProcessEnv = {
       PATH: process.env['PATH'] ?? '/usr/bin:/bin',
       HOME: '/nonexistent',
@@ -63,6 +67,7 @@ export class Git {
             GIT_COMMITTER_EMAIL: identity.committer.email,
           }
         : {}),
+      ...extraEnv,
     };
     return new Promise<string>((resolve, reject) => {
       execFile(
@@ -135,6 +140,23 @@ export class Git {
 
   async treeHash(): Promise<string> {
     return (await this.run(['rev-parse', 'HEAD^{tree}'])).trim();
+  }
+
+  /**
+   * Tree of the current working tree (uncommitted changes included, .gitignore respected), built in
+   * a throw-away index so the real index and HEAD are untouched.
+   */
+  async snapshotTree(indexFile: string): Promise<string> {
+    const env = { GIT_INDEX_FILE: indexFile };
+    await this.run(['add', '--all', '--', '.'], undefined, env);
+    return (await this.run(['write-tree'], undefined, env)).trim();
+  }
+
+  /** Writes a ZIP of a tree or commit (40-hex id only) with every path under `prefix/`. */
+  async archiveZip(treeish: string, prefix: string, outFile: string): Promise<void> {
+    if (!/^[0-9a-f]{40}$/.test(treeish)) throw new GitError('Invalid tree id', null);
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(prefix)) throw new GitError('Invalid prefix', null);
+    await this.run(['archive', '--format=zip', `--prefix=${prefix}/`, '-o', outFile, treeish]);
   }
 
   bundle(outFile: string) {

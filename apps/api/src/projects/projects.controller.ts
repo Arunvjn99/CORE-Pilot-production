@@ -1,3 +1,5 @@
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 import {
   Body,
   Controller,
@@ -10,6 +12,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
@@ -18,10 +21,12 @@ import {
   createPageSchema,
   restoreCheckpointSchema,
   createProjectSchema,
+  exportProjectQuerySchema,
   projectListQuerySchema,
   updatePageSchema,
   updateProjectSchema,
 } from '@core-studio/contracts';
+import type { Response } from 'express';
 import type { z } from 'zod';
 import {
   Auth,
@@ -128,6 +133,39 @@ export class ProjectsController {
   @RequirePermission('projects:read')
   repository(@Auth() auth: AuthContext, @Param('id', ParseUUIDPipe) id: string) {
     return this.projects.repository(auth, id);
+  }
+
+  /** Downloads the project as a runnable Vite app (ZIP). Viewers may export what they can see. */
+  @Get(':id/export')
+  @RequirePermission('projects:read')
+  async exportProject(
+    @Auth() auth: AuthContext,
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query(new ZodPipe(exportProjectQuerySchema)) query: z.infer<typeof exportProjectQuerySchema>,
+  ): Promise<void> {
+    const archive = await this.projects.exportProject(
+      auth,
+      id,
+      query.checkpointId ?? null,
+      correlationIdOf(req),
+    );
+    const size = (await stat(archive.file)).size;
+    res.status(200);
+    res.setHeader('content-type', 'application/zip');
+    res.setHeader('content-length', String(size));
+    res.setHeader('content-disposition', `attachment; filename="${archive.filename}"`);
+    res.setHeader('cache-control', 'no-store');
+    const stream = createReadStream(archive.file);
+    const done = () => {
+      void archive.cleanup();
+    };
+    res.on('close', done);
+    stream.on('error', () => {
+      res.destroy();
+    });
+    stream.pipe(res);
   }
 
   @Get(':id/checkpoints')

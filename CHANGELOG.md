@@ -2,6 +2,13 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-17 · V9a — version history and export as a React project
+
+- **Export:** `GET /projects/:id/export[?checkpointId=]` downloads the project as a runnable Vite + React + Tailwind app (ZIP): the current work including unsaved canvas edits (snapshotted in a throw-away git index, so the repository's index and HEAD are untouched), or any checkpoint. Viewers may export; audited as `project.exported`. Verified: the downloaded ZIP installs and builds (`tsc` + `vite build`).
+- **History tab** in the studio: checkpoints newest first, download any checkpoint, restore any checkpoint after confirmation (unsaved work is kept as an automatic checkpoint first); toolbar **Export** button; saving a checkpoint refreshes the list.
+- **Project template:** `data-link` prototype links navigate with the router in exported apps (new projects).
+- Tests: 3 new API integration tests (integration **147/147**), 4 new web unit tests (**104**), E2E studio journey extended with export + restore (**16/17**, same sandbox-only OpenAI case).
+
 ### 2026-11-17 · Docs and scans for the v2 re-baseline
 
 - **ADR-0013** (v2 re-baseline: agent graph, versioned AGENT.md/DESIGN.md, static separate-origin preview runtime). The slice 2.6 preview-container documents are marked superseded (2.6a repositories remain valid).

@@ -40,6 +40,7 @@ import {
   startFakeDesignOllama,
   startRuntime,
 } from './support/runtime.js';
+import { readZip } from './support/zip.js';
 
 const SECRET = 'ollama-STUDIO-0123456789abcdef';
 const TOKEN_SCOPE = 'api://core-ai-runtime/.default';
@@ -900,6 +901,82 @@ describe('metrics', () => {
     expect(theirs.totals.runs).toBe(0);
     expect(theirs.byProject).toEqual([]);
     await get('/api/v1/studio/metrics?days=0', viewer).expect(400);
+  });
+});
+
+describe('export as a runnable project', () => {
+  const download = async (who: SignedIn, project: string, query = '') => {
+    const res = await get(`/api/v1/projects/${project}/export${query}`, who)
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on('data', (chunk: Buffer) => chunks.push(chunk));
+        response.on('end', () => {
+          callback(null, Buffer.concat(chunks));
+        });
+      });
+    return res;
+  };
+
+  it('zips the current work, uncommitted canvas edits included, without touching git state', async () => {
+    const before = z
+      .object({ dirty: z.boolean() })
+      .parse((await get(`/api/v1/projects/${projectId}/repository`, designer).expect(200)).body);
+    expect(before.dirty).toBe(true); // canvas edits above are not checkpointed
+
+    const res = await download(viewer, projectId);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('application/zip');
+    expect(res.headers['content-disposition']).toBe('attachment; filename="studio-journey.zip"');
+    expect(res.headers['cache-control']).toBe('no-store');
+    const files = readZip(res.body as Buffer);
+    const names = [...files.keys()];
+    expect(names.every((n) => n.startsWith('studio-journey/'))).toBe(true);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'studio-journey/package.json',
+        'studio-journey/index.html',
+        'studio-journey/vite.config.ts',
+        'studio-journey/src/app/routes.ts',
+        'studio-journey/src/styles/tokens.css',
+        'studio-journey/DESIGN.md',
+      ]),
+    );
+    expect(names.some((n) => n.includes('/.git/') || n.includes('node_modules'))).toBe(false);
+    const screens = await screensOf(designer, projectId);
+    for (const screen of screens.screens)
+      expect(files.get(`studio-journey/${screen.filePath}`)?.toString('utf8')).toBe(screen.code);
+    expect(files.get('studio-journey/src/styles/tokens.css')?.toString('utf8')).toContain(
+      '--color-primary: #0b5cff',
+    );
+
+    const after = z
+      .object({ dirty: z.boolean() })
+      .parse((await get(`/api/v1/projects/${projectId}/repository`, designer).expect(200)).body);
+    expect(after.dirty).toBe(true);
+  });
+
+  it('zips a checkpoint exactly as it was saved', async () => {
+    const checkpoints = z
+      .array(z.object({ id: z.string(), message: z.string() }))
+      .parse((await get(`/api/v1/projects/${projectId}/checkpoints`, viewer).expect(200)).body);
+    const first = checkpoints.find((c) => c.message === 'AI: Account area');
+    if (!first) throw new Error('checkpoint missing');
+    const res = await download(viewer, projectId, `?checkpointId=${first.id}`);
+    expect(res.status).toBe(200);
+    const files = readZip(res.body as Buffer);
+    const dashboard = [...files.entries()].find(
+      ([name, data]) =>
+        name.endsWith('.tsx') && data.toString('utf8').includes('function Dashboard'),
+    );
+    expect(dashboard?.[1].toString('utf8')).toBe(fakeScreenCode('Dashboard', '/'));
+  });
+
+  it('refuses unknown checkpoints, bad input and other teams', async () => {
+    expect((await download(viewer, projectId, `?checkpointId=${projectId}`)).status).toBe(404);
+    expect((await download(viewer, projectId, '?checkpointId=not-a-uuid')).status).toBe(400);
+    expect((await download(outsider, projectId)).status).toBe(404);
+    expect((await request(server()).get(`/api/v1/projects/${projectId}/export`)).status).toBe(401);
   });
 });
 
