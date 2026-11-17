@@ -75,7 +75,7 @@ stages:
               ./scripts/test-e2e.sh
             displayName: E2E + accessibility (axe, WCAG 2.2 AA)
           - script: |
-              for image in api ai-runtime web; do
+              for image in api ai-runtime web preview; do
                 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.76.2 image --skip-version-check \
                   --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 \
                   core-studio/${image}:$(IMAGE_TAG)
@@ -93,7 +93,7 @@ stages:
               testResultsFormat: JUnit
               testResultsFiles: '**/test-results/junit.xml'
           - script: |
-              for image in api ai-runtime web; do docker save core-studio/${image}:$(IMAGE_TAG) | gzip > $(Build.ArtifactStagingDirectory)/$image-image.tar.gz; done
+              for image in api ai-runtime web preview; do docker save core-studio/${image}:$(IMAGE_TAG) | gzip > $(Build.ArtifactStagingDirectory)/$image-image.tar.gz; done
             displayName: Export tested images
           - publish: $(Build.ArtifactStagingDirectory)
             artifact: build-output
