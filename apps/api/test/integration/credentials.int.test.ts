@@ -1,7 +1,7 @@
 import { PassThrough } from 'node:stream';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { type CredentialSummary, credentialSummarySchema } from '@core-studio/contracts';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type pg from 'pg';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -365,9 +365,11 @@ describe('secret hygiene', () => {
       tx
         .select({ id: llmCredentials.id })
         .from(llmCredentials)
-        .where(eq(llmCredentials.status, 'active')),
+        // Only a credential that holds a secret must be destroyed before it can be revoked
+        // (a keyless Ollama connection has nothing to destroy).
+        .where(and(eq(llmCredentials.status, 'active'), eq(llmCredentials.hasSecret, true))),
     );
-    if (!anyActive) throw new Error('expected an active credential');
+    if (!anyActive) throw new Error('expected an active credential with a secret');
     await expect(
       withTenant(db, teamA, (tx) =>
         tx
