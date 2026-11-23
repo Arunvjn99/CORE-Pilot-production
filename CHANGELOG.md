@@ -2,6 +2,13 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-23 · F2 — Figma-style file browser
+
+- **Files** replaces the project dashboard (`/files/recent`, `/files/drafts`, `/files/project/:id`, `/files/trash`; `/` and `/projects` redirect to Recents). Files sidebar: Recents, Drafts, Projects (create, rename, delete with file count), Trash.
+- File views: search, sort (last modified, last opened, name, date created), grid/list (remembered per browser), cards with project, screen count and last edit. File menu and right-click: Open, Rename, Duplicate, Move to…, Export, Move to trash (with **Undo**); Trash offers Restore. Keyboard: Enter opens, F2 renames, Delete moves to trash. New design file: name, project and design system.
+- Main navigation: **Files** · Metrics · Settings. The old dashboard component and its tests are removed (relative-time helper moved to `lib/time.ts`).
+- Tests: 8 new web unit tests (web **108**); E2E rewritten for the Figma flow (project → new design file → screens; rename, duplicate, move, trash/undo/restore, delete project; dark/tablet) — **16/17**, same sandbox-only OpenAI case.
+
 ### 2026-11-23 · Figma-style app plan; F1 projects and files API
 
 - **Plan:** [`docs/development/figma-style-app-plan.md`](docs/development/figma-style-app-plan.md) — Team → Projects → Files → Screens, file browser and UI3-style editor layouts, flows and CRUD; slices F1–F4 before V6. **ADR-0014:** UI "Projects" are folders (`folders` table); UI "files" keep the `projects` table and API.

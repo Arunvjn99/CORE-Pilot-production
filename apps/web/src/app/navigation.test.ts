@@ -5,7 +5,7 @@ import { visibleNavItems } from './navigation';
 describe('visibleNavItems', () => {
   it('shows entries the user has permission for', () => {
     expect(visibleNavItems(makeSession()).map((i) => i.label)).toEqual([
-      'Projects',
+      'Files',
       'Metrics',
       'Settings',
     ]);
@@ -13,6 +13,6 @@ describe('visibleNavItems', () => {
   it('hides entries without permission', () => {
     expect(
       visibleNavItems(makeSession({ permissions: ['projects:read'] })).map((i) => i.label),
-    ).toEqual(['Projects', 'Metrics']);
+    ).toEqual(['Files', 'Metrics']);
   });
 });

@@ -122,3 +122,12 @@ Re-scoped with the product owner: projects and pages are stored in PostgreSQL no
 | Real model run                                                                                                                                  | Not verified here | This sandbox reaches no model (Ollama registry/HF blocked, no keys); runs used an Ollama-compatible fake. Verify with a real key on a developer machine or in Azure |
 | Export as a full Vite project; CORE React components in screens                                                                                 | Not started       | Later V-slices; components blocked on B1                                                                                                                            |
 | Roles beyond one team role (R8)                                                                                                                 | Not started       | Pipeline                                                                                                                                                            |
+
+## Figma-style app (2026-11-23) — plan: docs/development/figma-style-app-plan.md
+
+| Slice                                                                                                             | State       | Evidence                         |
+| ----------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------- |
+| F1 Projects (folders) and files API: CRUD, move, duplicate with history, filters, same-team FK                    | Done        | API integration 156/156 (9 new)  |
+| F2 File browser: Recents, Drafts, Projects, Trash; search, sort, grid/list; file and project CRUD; undo; keyboard | Done        | Web unit 108/108; E2E Figma flow |
+| F3 Editor shell (UI3), F4 layers tree and assets                                                                  | Not started | Next                             |
+| Permanent delete from Trash                                                                                       | Not started | Needs retention job (ADR-0014)   |

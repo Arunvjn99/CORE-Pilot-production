@@ -104,3 +104,14 @@ Environment notes (sandbox only, nothing committed): images were built from loca
 | Exported ZIP from the E2E run   | `npm install` + `npm run build` (tsc + vite) succeed                                                                                    |
 
 Defect found by E2E and fixed: the History panel hid Restore on the latest checkpoint, which is the way to discard unsaved edits.
+
+### F1–F2 — projects, files and the file browser (2026-11-23)
+
+| Suite                                       | Result                                                                                                                                                                                                                                    |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint, typecheck, unit (`turbo`)             | 21/21                                                                                                                                                                                                                                     |
+| API integration (fresh database and re-run) | **156/156** (9 new: folders CRUD/uniqueness/isolation, file filters and literal search, cross-team folder refusal incl. database guard, move, duplicate with history and new screen ids, delete project → Trash → restore to Drafts, RLS) |
+| Web unit                                    | **108/108** (8 new: file browser)                                                                                                                                                                                                         |
+| E2E                                         | 16/17 — rewritten projects spec for the Figma flow; the remaining failure is the sandbox-blocked OpenAI call                                                                                                                              |
+
+Defect found by tests and fixed: folder file counts were always 0 (unqualified column in a correlated subquery).

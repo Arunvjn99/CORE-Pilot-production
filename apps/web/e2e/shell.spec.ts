@@ -28,8 +28,8 @@ test('admin manages a team from the product shell', async ({ browser }) => {
 
   // Shell navigation and pages
   const nav = page.getByRole('navigation', { name: 'Main' });
-  await expect(nav.getByRole('link', { name: 'Projects' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Projects', level: 1 })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Files' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recents', level: 1 })).toBeVisible();
   await expectAccessible(page);
 
   await nav.getByRole('link', { name: 'Settings' }).click();
@@ -57,7 +57,7 @@ test('admin manages a team from the product shell', async ({ browser }) => {
 
   // The colleague now has a team: after reload they see the shell, read-only settings.
   await colleague.reload();
-  await expect(colleague.getByRole('heading', { name: 'Projects', level: 1 })).toBeVisible();
+  await expect(colleague.getByRole('heading', { name: 'Recents', level: 1 })).toBeVisible();
   await colleague
     .getByRole('navigation', { name: 'Main' })
     .getByRole('link', { name: 'Settings' })

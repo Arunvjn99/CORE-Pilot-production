@@ -13,8 +13,8 @@ export interface NavItem {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   {
-    to: '/projects',
-    label: 'Projects',
+    to: '/files',
+    label: 'Files',
     icon: <FolderKanban size={18} />,
     permission: 'projects:read',
   },

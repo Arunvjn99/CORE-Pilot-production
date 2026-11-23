@@ -99,13 +99,13 @@ test('designer prompts the agents, edits a screen and plays the prototype', asyn
   await page.setViewportSize({ width: 1600, height: 1000 });
   await signIn(page, ADMIN);
   await ensureTeam(page);
-  await page.goto('/projects');
+  await page.goto('/files/drafts');
 
-  // New project → studio.
-  await page.getByRole('button', { name: 'New project' }).click();
-  const create = page.getByRole('dialog', { name: 'New project' });
-  await create.getByLabel('Project name').fill(projectName);
-  await create.getByRole('button', { name: 'Create project' }).click();
+  // New design file (in Drafts) → studio.
+  await page.getByRole('button', { name: 'New design file' }).click();
+  const create = page.getByRole('dialog', { name: 'New design file' });
+  await create.getByLabel('File name').fill(projectName);
+  await create.getByRole('button', { name: 'Create file' }).click();
   await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
   await expect(page.getByRole('heading', { name: projectName, level: 1 })).toBeVisible();
   await expectAccessible(page);

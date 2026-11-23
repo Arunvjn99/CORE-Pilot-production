@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router';
-import { ProjectDashboard } from '../features/projects/project-dashboard';
+import { FilesLayout } from '../features/files/files-layout';
+import { FilesView } from '../features/files/files-view';
 import { MembersPage } from '../features/settings/members-page';
 import { AiProvidersPage } from '../features/ai-providers/ai-providers-page';
 import { AgentsPage } from '../features/settings/agents-page';
@@ -22,8 +23,20 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     errorElement: <RouteError />,
     children: [
-      { index: true, element: <Navigate to="/projects" replace /> },
-      { path: 'projects', element: <ProjectDashboard /> },
+      { index: true, element: <Navigate to="/files/recent" replace /> },
+      // Figma-style file browser (ADR-0014). The old dashboard URL now opens Recents.
+      { path: 'projects', element: <Navigate to="/files/recent" replace /> },
+      {
+        path: 'files',
+        element: <FilesLayout />,
+        children: [
+          { index: true, element: <Navigate to="recent" replace /> },
+          { path: 'recent', element: <FilesView key="recent" mode="recent" /> },
+          { path: 'drafts', element: <FilesView key="drafts" mode="drafts" /> },
+          { path: 'project/:folderId', element: <FilesView key="project" mode="project" /> },
+          { path: 'trash', element: <FilesView key="trash" mode="trash" /> },
+        ],
+      },
       { path: 'metrics', element: <MetricsPage /> },
       {
         path: 'settings',

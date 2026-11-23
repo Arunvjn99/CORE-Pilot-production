@@ -23,7 +23,7 @@ test('company admin signs in with hardened cookies, reaches projects and signs o
     await createForm.fill(`E2E Team ${randomUUID().slice(0, 8)}`);
     await page.getByRole('button', { name: 'Create team' }).click();
   }
-  await expect(page.getByRole('heading', { name: 'Projects', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recents', level: 1 })).toBeVisible();
   const storage = await page.evaluate(() => ({
     local: window.localStorage.length,
     session: window.sessionStorage.length,
