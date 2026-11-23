@@ -24,6 +24,7 @@ ChatFn = Callable[[str, str, str, int], Awaitable[ChatResult]]  # model, system,
 
 ROUTE = re.compile(r"^/(?:[a-z0-9]+(?:-[a-z0-9]+)*(?:/[a-z0-9]+(?:-[a-z0-9]+)*)*)?$")
 MAX_SCREENS = 6
+FENCE = re.compile(r"```(?:tsx|jsx|typescript|ts)?\s*\n(.*?)```", re.DOTALL)
 
 # Output contracts the API relies on. Kept out of AGENT.md so a team edit can't break parsing.
 PLAN_CONTRACT = """Respond with ONLY a JSON object:
@@ -82,11 +83,106 @@ def _json(text: str) -> dict[str, Any]:
 
 
 def _tsx(text: str) -> str:
-    match = re.search(r"```(?:tsx|jsx|typescript|ts)?\s*\n(.*?)```", text, re.DOTALL)
+    match = FENCE.search(text)
     code = (match.group(1) if match else text).strip()
     if "export default" not in code:
         raise ChatError("invalid_output")
     return code + "\n"
+
+
+CONTRACTS: dict[str, str] = {
+    "orchestrator": PLAN_CONTRACT,
+    "ux": UX_CONTRACT,
+    "ui": UI_CONTRACT,
+    "reviewer": REVIEW_CONTRACT,
+}
+MAX_TOKENS: dict[str, int] = {"orchestrator": 2000, "ux": 4000, "ui": 8000, "reviewer": 3000}
+
+
+def system_prompt(agent_key: str, instructions: str, design_md: str) -> str:
+    """What every agent receives as its system message: AGENT.md, DESIGN.md, then its output contract."""
+    return (
+        f"{instructions.strip()}\n\n# Design system (DESIGN.md)\n{design_md}"
+        f"\n\n# Output contract\n{CONTRACTS[agent_key]}"
+    )
+
+
+def plan_user(prompt: str, existing: list[dict[str, str]]) -> str:
+    listed = ", ".join(f"{s['name']} ({s['route']})" for s in existing) or "none"
+    return f"User request:\n{prompt}\n\nExisting screens: {listed}"
+
+
+def ux_user(prompt: str, plan: dict[str, Any]) -> str:
+    return f"User request:\n{prompt}\n\nPlan:\n{json.dumps(plan, indent=1)}"
+
+
+def ui_user(
+    prompt: str,
+    screen: dict[str, Any],
+    others: list[dict[str, str]],
+    ux: dict[str, Any],
+    previous: str | None = None,
+    feedback: str | None = None,
+) -> str:
+    user = (
+        f"User request:\n{prompt}\n\nScreen: {screen['name']} ({screen['route']})\n"
+        f"Purpose: {screen.get('purpose', '')}\n"
+        f"Links to: {json.dumps(screen.get('links', []))}\nAll screens: {json.dumps(others)}\n"
+        f"UX layout:\n{json.dumps(ux, indent=1)}"
+    )
+    if feedback and previous:
+        user += f"\n\nPrevious version:\n```tsx\n{previous}```\nReviewer feedback to fix:\n{feedback}"
+    return user
+
+
+def review_user(prompt: str, screens: dict[str, dict[str, str]]) -> str:
+    listing = "\n\n".join(f"## {v['name']} ({k})\n```tsx\n{v['code']}```" for k, v in screens.items())
+    return f"User request:\n{prompt}\n\nScreens:\n{listing}"
+
+
+TEST_SCREEN: dict[str, Any] = {
+    "name": "Main screen",
+    "route": "/",
+    "purpose": "As described in the request",
+    "links": [],
+}
+
+
+def agent_test_user(agent_key: str, prompt: str) -> str:
+    """User message for a one-agent test run ("Test this agent"), shaped like the real graph step.
+
+    Upstream outputs don't exist in a test, so the agent gets the minimal context it would have
+    received: one planned screen for UX and UI. A reviewer test reviews TSX pasted in the request.
+    """
+    match agent_key:
+        case "orchestrator":
+            return plan_user(prompt, [])
+        case "ux":
+            return ux_user(prompt, {"title": "Agent test", "summary": "", "screens": [TEST_SCREEN], "todos": []})
+        case "ui":
+            return ui_user(prompt, TEST_SCREEN, [{"name": TEST_SCREEN["name"], "route": "/"}], {})
+        case _:
+            fenced = FENCE.search(prompt)
+            if fenced:
+                code, request = fenced.group(1), (prompt[: fenced.start()] + prompt[fenced.end() :]).strip()
+            elif "export default" in prompt:
+                code, request = prompt, ""
+            else:
+                return review_user(prompt, {})
+            screens = {"/": {"name": TEST_SCREEN["name"], "code": code.strip() + "\n"}}
+            return review_user(request or "Review this screen.", screens)
+
+
+def check_output(agent_key: str, text: str) -> bool:
+    """Whether the output satisfies the agent's contract the way the graph parses it."""
+    try:
+        if agent_key == "ui":
+            _tsx(text)
+        else:
+            _json(text)
+    except ChatError:
+        return False
+    return True
 
 
 class DesignGraph:
@@ -94,18 +190,13 @@ class DesignGraph:
         self._chat = chat
         self._emit = emit
 
-    async def _call(
-        self, state: DesignState, agent_key: str, label: str, user: str, contract: str, max_tokens: int
-    ) -> str:
+    async def _call(self, state: DesignState, agent_key: str, label: str, user: str) -> str:
         agent = state["agents"][agent_key]
         started = time.monotonic()
         await self._emit({"type": "step_started", "agent": agent_key, "label": label})
-        system = (
-            f"{agent['instructions'].strip()}\n\n# Design system (DESIGN.md)\n{state['design_md']}"
-            f"\n\n# Output contract\n{contract}"
-        )
+        system = system_prompt(agent_key, agent["instructions"], state["design_md"])
         try:
-            result = await self._chat(agent["model"], system, user, max_tokens)
+            result = await self._chat(agent["model"], system, user, MAX_TOKENS[agent_key])
         except ChatError as exc:
             await self._emit({"type": "step_failed", "agent": agent_key, "label": label, "code": exc.code})
             raise
@@ -125,14 +216,8 @@ class DesignGraph:
     # ---------- nodes ----------
 
     async def plan(self, state: DesignState) -> DesignState:
-        existing = ", ".join(f"{s['name']} ({s['route']})" for s in state.get("existing", [])) or "none"
         text = await self._call(
-            state,
-            "orchestrator",
-            "Planning screens",
-            f"User request:\n{state['prompt']}\n\nExisting screens: {existing}",
-            PLAN_CONTRACT,
-            2000,
+            state, "orchestrator", "Planning screens", plan_user(state["prompt"], state.get("existing", []))
         )
         plan = _json(text)
         screens = [s for s in plan.get("screens", []) if isinstance(s, dict) and ROUTE.match(str(s.get("route", "")))]
@@ -153,14 +238,7 @@ class DesignGraph:
     async def ux(self, state: DesignState) -> DesignState:
         if not state["agents"]["ux"]["enabled"]:
             return {"ux": {"screens": []}}
-        text = await self._call(
-            state,
-            "ux",
-            "Designing layouts",
-            f"User request:\n{state['prompt']}\n\nPlan:\n{json.dumps(state['plan'], indent=1)}",
-            UX_CONTRACT,
-            4000,
-        )
+        text = await self._call(state, "ux", "Designing layouts", ux_user(state["prompt"], state["plan"]))
         return {"ux": _json(text)}
 
     async def _screen(
@@ -170,16 +248,9 @@ class DesignGraph:
         ux: dict[str, Any] = next((s for s in state["ux"].get("screens", []) if s.get("route") == route), {})
         others = [{"name": s["name"], "route": s["route"]} for s in state["plan"]["screens"]]
         previous = state["screens"].get(route, {}).get("code")
-        user = (
-            f"User request:\n{state['prompt']}\n\nScreen: {screen['name']} ({route})\n"
-            f"Purpose: {screen.get('purpose', '')}\n"
-            f"Links to: {json.dumps(screen.get('links', []))}\nAll screens: {json.dumps(others)}\n"
-            f"UX layout:\n{json.dumps(ux, indent=1)}"
-        )
-        if feedback and previous:
-            user += f"\n\nPrevious version:\n```tsx\n{previous}```\nReviewer feedback to fix:\n{feedback}"
+        user = ui_user(state["prompt"], screen, others, ux, previous, feedback)
         try:
-            text = await self._call(state, "ui", f"Building {screen['name']}", user, UI_CONTRACT, 8000)
+            text = await self._call(state, "ui", f"Building {screen['name']}", user)
             code = _tsx(text)
         except ChatError:
             return None
@@ -196,14 +267,8 @@ class DesignGraph:
     async def review(self, state: DesignState) -> DesignState:
         if not state["agents"]["reviewer"]["enabled"]:
             return {"review": {"screens": []}}
-        listing = "\n\n".join(f"## {v['name']} ({k})\n```tsx\n{v['code']}```" for k, v in state["screens"].items())
         text = await self._call(
-            state,
-            "reviewer",
-            "Reviewing against the design system",
-            f"User request:\n{state['prompt']}\n\nScreens:\n{listing}",
-            REVIEW_CONTRACT,
-            3000,
+            state, "reviewer", "Reviewing against the design system", review_user(state["prompt"], state["screens"])
         )
         review = _json(text)
         await self._emit({"type": "review", "round": state.get("fix_round", 0), "screens": review.get("screens", [])})

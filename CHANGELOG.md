@@ -2,6 +2,12 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-23 · Knowledge base and "Test this agent" (V4)
+
+- **Settings → Knowledge:** team documents (markdown) the agents follow; create, edit, enable/disable, delete; admins/owners edit, everyone reads. Enabled documents are added to every design run after DESIGN.md (capped at 60 000 characters); the run records which documents it used. Migration 0012 (RLS forced).
+- **Test this agent** (Settings → Agents): runs one agent once with its current, even unsaved, AGENT.md, a sample request and a chosen design system, through the same prompt building as real runs; shows the output, whether it meets the output contract, model, tokens and time. Nothing is saved; throttled; provider errors map to fixed codes.
+- Tests: integration **187/187** (13 new), AI runtime 83 (11 new), web 161.
+
 ### 2026-11-23 · Verify checks; live thumbnails; plan to-dos
 
 - **Verify tab:** Run checks / Check all screens runs axe-core (WCAG 2.2 AA) and design-system checks (hard-coded colours, palette colours, small text, small touch targets, missing alt) inside the preview; issues grouped by severity, click to select the element. Protocol: `verify` / `verifyResult`.

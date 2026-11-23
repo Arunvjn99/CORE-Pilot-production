@@ -14,7 +14,7 @@ from ai_runtime.app import create_app
 from ai_runtime.config import Settings
 from ai_runtime.gateway import egress, router
 from ai_runtime.gateway.egress import EgressBlockedError, EgressPolicy, PinnedTransport, is_blocked_address
-from ai_runtime.gateway.providers import ProviderTarget, probe
+from ai_runtime.gateway.providers import ProbeResult, ProviderTarget, probe
 
 ROOT = Path(__file__).resolve().parents[3]
 CASES = json.loads((ROOT / "packages/contracts/test-vectors/egress-address-cases.json").read_text())
@@ -133,7 +133,9 @@ def target(provider: str, **kw: str | None) -> ProviderTarget:
     )
 
 
-async def run_probe(monkeypatch: pytest.MonkeyPatch, t: ProviderTarget, inner: httpx2.AsyncBaseTransport):
+async def run_probe(
+    monkeypatch: pytest.MonkeyPatch, t: ProviderTarget, inner: httpx2.AsyncBaseTransport
+) -> ProbeResult:
     async def public(host: str, port: int) -> list[str]:
         return ["93.184.216.34"]
 

@@ -5,6 +5,7 @@ import { MembersPage } from '../features/settings/members-page';
 import { AiProvidersPage } from '../features/ai-providers/ai-providers-page';
 import { AgentsPage } from '../features/settings/agents-page';
 import { DesignSystemsPage } from '../features/settings/design-systems-page';
+import { KnowledgePage } from '../features/settings/knowledge-page';
 import { MetricsPage } from '../features/metrics/metrics-page';
 import { SettingsLayout } from '../features/settings/settings-layout';
 import { LegacyFileRedirect, StudioRoute } from '../features/studio/studio-page';
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
           { path: 'ai-providers', element: <AiProvidersPage /> },
           { path: 'agents', element: <AgentsPage /> },
           { path: 'design-systems', element: <DesignSystemsPage /> },
+          { path: 'knowledge', element: <KnowledgePage /> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },

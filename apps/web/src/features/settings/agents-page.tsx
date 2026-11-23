@@ -6,6 +6,7 @@ import { ApiError } from '../../lib/api-client';
 import { hasPermission } from '../auth/permissions';
 import { useSession } from '../auth/use-session';
 import { useAgentMutations, useAgents, useAgentVersions } from '../studio/studio-api';
+import { AgentTestDialog } from './agent-test-dialog';
 
 const control =
   'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-60';
@@ -191,6 +192,7 @@ function AgentEditor({
                 <RotateCcw size={14} aria-hidden="true" /> Reset to default
               </Button>
             )}
+            <AgentTestDialog teamId={teamId} agent={agent} instructions={instructions} />
           </div>
         )}
       </form>

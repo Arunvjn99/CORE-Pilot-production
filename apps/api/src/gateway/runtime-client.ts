@@ -43,6 +43,27 @@ export const RUNTIME_UNAVAILABLE: ProbeResponse = {
   models: [],
 };
 
+const agentTestResponseSchema = z.object({
+  code: z.string().max(60),
+  output: z.string().max(1_000_000),
+  valid: z.boolean(),
+  model: z.string().max(200),
+  inputTokens: z.number().int().min(0),
+  outputTokens: z.number().int().min(0),
+  durationMs: z.number().int().min(0),
+});
+export type AgentTestResponse = z.infer<typeof agentTestResponseSchema>;
+
+const agentTestFailure = (code: string): AgentTestResponse => ({
+  code,
+  output: '',
+  valid: false,
+  model: '',
+  inputTokens: 0,
+  outputTokens: 0,
+  durationMs: 0,
+});
+
 /** Calls the AI runtime's internal gateway with a service token (ADR-0011). */
 @Injectable()
 export class RuntimeClient {
@@ -97,6 +118,41 @@ export class RuntimeClient {
         'AI runtime unreachable',
       );
       return RUNTIME_UNAVAILABLE;
+    }
+  }
+
+  /** Runs one agent once ("Test this agent"). Network/HTTP failures come back as `runtime_unavailable`. */
+  async agentTest(
+    body: Record<string, unknown>,
+    correlationId: string,
+  ): Promise<AgentTestResponse> {
+    try {
+      const response = await fetch(new URL('/internal/v1/agent-test', this.config.AI_RUNTIME_URL), {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${await this.token()}`,
+          'content-type': 'application/json',
+          [CORRELATION_ID_HEADER]: correlationId,
+        },
+        body: JSON.stringify(body),
+        redirect: 'error',
+        signal: AbortSignal.timeout(this.config.DESIGN_RUN_TIMEOUT_SECONDS * 1000),
+      });
+      if (response.status === 401) this.cached = null;
+      if (!response.ok) {
+        this.logger.warn(
+          { status: response.status, correlationId },
+          'AI runtime agent test failed',
+        );
+        return agentTestFailure('runtime_unavailable');
+      }
+      return agentTestResponseSchema.parse(await response.json());
+    } catch (error) {
+      this.logger.warn(
+        { err: error instanceof Error ? error.name : 'unknown', correlationId },
+        'AI runtime unreachable',
+      );
+      return agentTestFailure('runtime_unavailable');
     }
   }
 

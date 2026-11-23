@@ -15,6 +15,8 @@ import { generationRuns, projectPages, projects, runSteps, users } from '../db/s
 import { RuntimeClient } from '../gateway/runtime-client.js';
 import { REDIS } from '../redis/redis.tokens.js';
 import { RepositoriesService } from '../repositories/repositories.service.js';
+import { KnowledgeService } from '../knowledge/knowledge.service.js';
+import { designContext } from './design-context.js';
 import { LibraryService } from './library.service.js';
 import { isValidScreen } from './source-edit.js';
 import { DESIGN_MD_PATH, StudioService, TOKENS_PATH } from './studio.service.js';
@@ -57,6 +59,7 @@ export class RunsService {
     private readonly runtime: RuntimeClient,
     private readonly llm: LlmSettingsService,
     private readonly library: LibraryService,
+    private readonly knowledge: KnowledgeService,
     private readonly studio: StudioService,
     private readonly repositories: RepositoriesService,
     private readonly audit: AuditService,
@@ -116,6 +119,7 @@ export class RunsService {
         .from(projects)
         .where(eq(projects.id, projectId));
       const revision = await this.repositories.revision(tx, projectId);
+      const knowledge = await this.knowledge.forAgents(tx);
       const [run] = await tx
         .insert(generationRuns)
         .values({
@@ -125,6 +129,7 @@ export class RunsService {
           provider: target.provider,
           agentVersions: Object.fromEntries(agents.map((a) => [a.key, a.version])),
           designSystem: { slug: project?.slug ?? null, version: revision },
+          knowledge: knowledge.used,
           startedBy: auth.userId,
         })
         .returning({ id: generationRuns.id });
@@ -136,7 +141,12 @@ export class RunsService {
         targetType: 'project',
         targetId: projectId,
         correlationId,
-        metadata: { runId: run.id, provider: target.provider, model: target.model },
+        metadata: {
+          runId: run.id,
+          provider: target.provider,
+          model: target.model,
+          knowledgeDocuments: knowledge.used.length,
+        },
       });
       const body = {
         runId: run.id,
@@ -146,7 +156,7 @@ export class RunsService {
         deployment: target.deployment,
         sealed: target.sealed,
         prompt,
-        designMd: `${designMd}\n\n## tokens.css (use these CSS variables)\n\`\`\`css\n${tokensCss}\n\`\`\``,
+        designMd: designContext(designMd, tokensCss, knowledge.markdown),
         existing: manifest.pages.map((p) => ({ name: p.name, route: p.route })),
         agents: Object.fromEntries(
           agents.map((a) => [

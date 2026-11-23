@@ -3,13 +3,13 @@ from typing import Any
 
 import pytest
 
-from ai_runtime.design.graph import DesignGraph, DesignState
+from ai_runtime.design.graph import Agent, ChatFn, DesignGraph, DesignState
 from ai_runtime.gateway.chat import ChatError, ChatResult
 
 SCREEN = '```tsx\nexport default function {name}() {{\n  return <main data-link="/next">{name}</main>;\n}}\n```'
 
 
-def scripted(fail_first_review: bool = True):
+def scripted(fail_first_review: bool = True) -> tuple[ChatFn, list[str]]:
     calls: list[str] = []
     reviews = {"n": 0}
 
@@ -59,7 +59,7 @@ def scripted(fail_first_review: bool = True):
 
 
 def state() -> DesignState:
-    agents = {
+    agents: dict[str, Agent] = {
         k: {"instructions": k.upper() if k != "orchestrator" else "PLANNER", "model": "m", "enabled": True}
         for k in ("orchestrator", "ux", "ui", "reviewer")
     }

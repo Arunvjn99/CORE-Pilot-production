@@ -136,6 +136,8 @@ export interface FakeDesignProvider extends FakeProvider {
   calls: DesignRole[];
   /** Models requested per role, to prove per-agent model overrides reach the provider. */
   models: { role: DesignRole; model: string }[];
+  /** System and user messages per call, to prove what the agents were given. */
+  prompts: { role: DesignRole; system: string; user: string }[];
   /** Changes the behaviour for the next runs. */
   set: (behaviour: Partial<DesignBehaviour>) => void;
 }
@@ -190,6 +192,7 @@ export async function startFakeDesignOllama(expectedSecret: string): Promise<Fak
   const seenAuthorization: string[] = [];
   const calls: DesignRole[] = [];
   const models: { role: DesignRole; model: string }[] = [];
+  const prompts: { role: DesignRole; system: string; user: string }[] = [];
   const behaviour: DesignBehaviour = {
     screens: [
       { name: 'Sign in', route: '/' },
@@ -275,6 +278,7 @@ export async function startFakeDesignOllama(expectedSecret: string): Promise<Fak
       const role = roleOf(system);
       calls.push(role);
       models.push({ role, model: body.model });
+      prompts.push({ role, system, user });
       setTimeout(() => {
         if (behaviour.status !== 200) {
           res.writeHead(behaviour.status, { 'content-type': 'application/json' });
@@ -299,6 +303,7 @@ export async function startFakeDesignOllama(expectedSecret: string): Promise<Fak
     seenAuthorization,
     calls,
     models,
+    prompts,
     set: (next) => Object.assign(behaviour, next),
     close: () =>
       new Promise((resolve) =>

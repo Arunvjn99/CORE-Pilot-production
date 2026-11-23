@@ -85,6 +85,13 @@
       "when": 1795453160579,
       "tag": "0011_comments_and_purge",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795456798948,
+      "tag": "0012_knowledge_base",
+      "breakpoints": true
     }
   ]
 }

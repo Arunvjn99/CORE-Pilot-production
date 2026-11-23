@@ -344,3 +344,27 @@ export const studioConfigSchema = z.object({
   langsmithEnabled: z.boolean(),
 });
 export type StudioConfig = z.infer<typeof studioConfigSchema>;
+
+// ---------- "test this agent" (Settings → Agents) ----------
+
+export const agentTestSchema = z.object({
+  /** AGENT.md text from the editor (unsaved edits allowed). */
+  instructions: updateAgentSchema.shape.instructions,
+  /** Sample user request. */
+  prompt: z.string().trim().min(3, 'Enter a sample request').max(8000),
+  /** Design system whose DESIGN.md the agent sees; CORE 2.0 (the default) when omitted. */
+  designSystemSlug: designSystemSlugSchema.optional(),
+});
+export type AgentTest = z.infer<typeof agentTestSchema>;
+
+export const agentTestResultSchema = z.object({
+  /** Raw model output (JSON for orchestrator/ux/reviewer, a TSX block for ui). */
+  output: z.string(),
+  /** Whether a design run could use this output (it follows the agent's output contract). */
+  valid: z.boolean(),
+  model: z.string(),
+  inputTokens: z.number().int(),
+  outputTokens: z.number().int(),
+  durationMs: z.number().int(),
+});
+export type AgentTestResult = z.infer<typeof agentTestResultSchema>;

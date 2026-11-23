@@ -534,6 +534,33 @@ export const designSystemVersions = pgTable(
   ],
 ).enableRLS();
 
+/**
+ * Team knowledge base: documents every agent must follow (product facts, content rules, compliance
+ * wording). Enabled documents are appended to the agents' context on each run.
+ */
+export const knowledgeDocuments = pgTable(
+  'knowledge_documents',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    body: text('body').notNull(),
+    enabled: boolean('enabled').notNull().default(true),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedBy: uuid('updated_by').references(() => users.id, { onDelete: 'set null' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('knowledge_documents_org_idx').on(t.organizationId, t.createdAt),
+    check('knowledge_documents_title_length', sql`char_length(title) between 1 and 120`),
+    check('knowledge_documents_body_length', sql`char_length(body) <= 100000`),
+    tenantIsolation('knowledge_documents'),
+  ],
+).enableRLS();
+
 export const runStatus = pgEnum('run_status', ['running', 'succeeded', 'failed']);
 
 export const generationRuns = pgTable(
@@ -549,6 +576,11 @@ export const generationRuns = pgTable(
     provider: text('provider'),
     agentVersions: jsonb('agent_versions').$type<Record<string, number>>().notNull().default({}),
     designSystem: jsonb('design_system').$type<{ slug: string | null; version: number }>(),
+    /** Team knowledge documents the agents received (id + title, as they were at run start). */
+    knowledge: jsonb('knowledge')
+      .$type<{ id: string; title: string; truncated: boolean }[]>()
+      .notNull()
+      .default([]),
     inputTokens: integer('input_tokens').notNull().default(0),
     outputTokens: integer('output_tokens').notNull().default(0),
     screens: integer('screens').notNull().default(0),

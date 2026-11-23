@@ -14,8 +14,10 @@ import {
   Res,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import {
   agentKeySchema,
+  agentTestSchema,
   applyDesignSystemSchema,
   createDesignSystemSchema,
   designSystemSlugSchema,
@@ -41,6 +43,7 @@ import { RequirePermission } from '../auth/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 import { APP_CONFIG } from '../config/config.module.js';
 import type { AppConfig } from '../config/env.js';
+import { AgentTestService } from './agent-test.service.js';
 import { LibraryService } from './library.service.js';
 import { MetricsService } from './metrics.service.js';
 import { RunsService } from './runs.service.js';
@@ -63,6 +66,7 @@ export class StudioController {
     private readonly studio: StudioService,
     private readonly runs: RunsService,
     private readonly metrics: MetricsService,
+    private readonly agentTests: AgentTestService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -121,6 +125,23 @@ export class StudioController {
       correlationIdOf(req),
     );
     return (await this.library.listAgents(auth)).find((a) => a.key === key);
+  }
+
+  /**
+   * "Test this agent": one call to the team's model with the editor's AGENT.md. Throttled harder
+   * than the default (it spends provider tokens) and saves nothing.
+   */
+  @Post('studio/agents/:key/test')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @RequirePermission('projects:write')
+  testAgent(
+    @Auth() auth: AuthContext,
+    @Req() req: AuthenticatedRequest,
+    @Param('key', keyPipe) key: z.infer<typeof agentKeySchema>,
+    @Body(new ZodPipe(agentTestSchema)) body: z.infer<typeof agentTestSchema>,
+  ) {
+    return this.agentTests.run(auth, key, body, correlationIdOf(req));
   }
 
   // ---------- design systems ----------
