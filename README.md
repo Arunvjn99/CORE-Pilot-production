@@ -32,6 +32,29 @@ docker compose up -d --build --wait
 
 Change `API_HOST_PORT` / `WEB_HOST_PORT` in `.env` if those ports are taken.
 
+### First sign-in (local)
+
+Locally, "Sign in with Microsoft" goes to a test login page (production uses Microsoft Entra ID).
+Run `./scripts/local-sign-in.sh` and paste the username and claims it prints. You are the company
+admin: create a team when asked, then you land in **Files → Recents**.
+
+### Connect a model (one key for every agent)
+
+The agents need one model. With [Ollama](https://ollama.com) on your machine (`ollama pull qwen2.5-coder:7b`):
+
+1. **Settings → AI providers → Add credential** → Ollama, endpoint `http://host.docker.internal:11434`
+   (allowed by `LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS` in `.env`) → **Test connection**.
+2. **Default model** → choose the credential → **Load models** → **Set as default**.
+
+OpenAI, Anthropic, Gemini and Azure OpenAI keys work the same way.
+
+### Try it
+
+**Files → + New design file** → in the editor, **AI** tab: describe the screens → watch the agents
+plan, design, build and review → click an element on the canvas to edit it in the **Design** panel
+(⌘/Ctrl+Z undoes) → **Prototype** tab for links and triggers → **Present** → **Comments** (C) to pin
+feedback → **History** to restore or **Export** a runnable React project.
+
 ## Develop and test
 
 ```bash

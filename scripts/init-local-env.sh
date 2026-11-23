@@ -17,6 +17,9 @@ admin=$(new_uuid)
 sed -i.bak "s/^OIDC_ALLOWED_TENANT_ID=\$/OIDC_ALLOWED_TENANT_ID=${tenant}/; s/^BOOTSTRAP_PLATFORM_ADMIN_OBJECT_IDS=\$/BOOTSTRAP_PLATFORM_ADMIN_OBJECT_IDS=${admin}/" .env
 kek=$(openssl rand -base64 32)
 sed -i.bak "s#^LOCAL_KEK=\$#LOCAL_KEK=${kek}#" .env
+# Local only: lets the AI runtime container reach an Ollama running on this machine.
+sed -i.bak "s/^LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS=\$/LLM_ENDPOINT_ALLOWED_PRIVATE_HOSTS=host.docker.internal/" .env
 rm -f .env.bak
 chmod 600 .env
 echo "Created .env with generated local secrets."
+echo "Sign-in details for the local test login: ./scripts/local-sign-in.sh"
