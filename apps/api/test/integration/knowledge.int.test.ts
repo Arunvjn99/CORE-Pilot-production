@@ -35,7 +35,7 @@ import {
   startRuntime,
 } from './support/runtime.js';
 
-const SECRET = 'ollama-KNOWLEDGE-0123456789abcdef';
+const SECRET = 'ollama-TEST-knowledge-0000000000';
 const TOKEN_SCOPE = 'api://core-ai-runtime/.default';
 const CLIENT_ID = 'core-studio-test';
 const KNOWLEDGE_URL = '/api/v1/studio/knowledge';

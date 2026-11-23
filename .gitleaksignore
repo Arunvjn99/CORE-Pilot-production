@@ -1,0 +1,2 @@
+# Deliberately fake Ollama key in an integration test (not a credential). Exact finding only.
+f252f03181fce967135b9e0e8a434f274687288b:apps/api/test/integration/knowledge.int.test.ts:generic-api-key:38
