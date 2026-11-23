@@ -224,6 +224,26 @@ describe('ChatPanel', () => {
     );
   });
 
+  it('lists the plan’s to-dos, checked once the run succeeds', async () => {
+    stubApi();
+    renderPanel();
+    const source = await startRun();
+    source.emit({
+      type: 'plan',
+      title: 'Sign-in',
+      summary: '',
+      screens: [{ name: 'Sign in', route: '/' }],
+      todos: ['Plan the screens', 'Build in CORE 2.0'],
+    });
+    const todos = await screen.findByRole('list', { name: 'Plan to-dos' });
+    expect(within(todos).getAllByLabelText('To do')).toHaveLength(2);
+    expect(todos).toHaveTextContent('Build in CORE 2.0');
+    source.emit({ type: 'done', status: 'succeeded', errorCode: null });
+    await waitFor(() => {
+      expect(within(todos).getAllByLabelText('Done')).toHaveLength(2);
+    });
+  });
+
   it('shows failed steps and the error of a failed run', async () => {
     stubApi();
     renderPanel();

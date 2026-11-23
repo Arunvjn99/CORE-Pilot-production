@@ -17,6 +17,7 @@ import { Button, EmptyState, ErrorMessage, PageHeader } from '../../components/u
 import { timeAgo } from '../../lib/time';
 import { exportUrl } from '../studio/studio-api';
 import { MoveFileDialog, NameDialog, NewFileDialog } from './file-dialogs';
+import { FileThumbnail } from './file-thumbnail';
 import { type FileQuery, useFileMutations, useFiles } from './files-api';
 import { useFilesContext } from './files-layout';
 
@@ -406,11 +407,12 @@ export function FilesView({ mode }: { mode: FilesMode }) {
                 setMenuFor(file.id);
               }}
             >
-              <div
-                aria-hidden="true"
-                className="flex h-32 items-end bg-gradient-to-br from-accent/15 to-surface-muted p-3"
-              >
-                <span className="rounded bg-surface/80 px-1.5 py-0.5 text-xs text-text-muted">
+              <div className="relative">
+                <FileThumbnail fileId={file.id} label={file.name} />
+                <span
+                  aria-hidden="true"
+                  className="absolute bottom-2 left-2 rounded bg-surface/90 px-1.5 py-0.5 text-xs text-text-muted"
+                >
                   {file.designSystemSlug ?? 'core-2'}
                 </span>
               </div>

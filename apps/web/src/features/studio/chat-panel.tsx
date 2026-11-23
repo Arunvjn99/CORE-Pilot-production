@@ -1,6 +1,6 @@
 import type { Run, RunEvent } from '@core-studio/contracts';
 import { useQueryClient } from '@tanstack/react-query';
-import { Bot, CheckCircle2, CircleAlert, Loader2, Send, Sparkles } from 'lucide-react';
+import { Bot, CheckCircle2, Circle, CircleAlert, Loader2, Send, Sparkles } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import { Button, ErrorMessage } from '../../components/ui';
@@ -31,7 +31,14 @@ export const errorText = (code: string | null) =>
   code ? (ERRORS[code] ?? `The run failed (${code}).`) : null;
 
 function Timeline({ events }: { events: RunEvent[] }) {
-  const rows: { key: string; icon: 'run' | 'ok' | 'fail'; text: string; detail?: string }[] = [];
+  const rows: {
+    key: string;
+    icon: 'run' | 'ok' | 'fail';
+    text: string;
+    detail?: string;
+    todos?: string[];
+  }[] = [];
+  const succeeded = events.some((e) => e.type === 'done' && e.status === 'succeeded');
   const finished = new Set<string>();
   for (const e of events) {
     if (e.type === 'step_finished' || e.type === 'step_failed')
@@ -64,6 +71,7 @@ function Timeline({ events }: { events: RunEvent[] }) {
         icon: 'ok',
         text: `Plan: ${e.title}`,
         detail: e.screens.map((s) => s.name).join(' · '),
+        todos: e.todos,
       });
     if (e.type === 'review')
       rows.push({
@@ -96,6 +104,24 @@ function Timeline({ events }: { events: RunEvent[] }) {
             <span className="block">{row.text}</span>
             {row.detail && (
               <span className="block truncate text-xs text-text-muted">{row.detail}</span>
+            )}
+            {row.todos && row.todos.length > 0 && (
+              <ul aria-label="Plan to-dos" className="mt-1 space-y-0.5">
+                {row.todos.map((todo, n) => (
+                  <li key={n} className="flex items-start gap-1.5 text-xs text-text-muted">
+                    {succeeded ? (
+                      <CheckCircle2
+                        size={12}
+                        aria-label="Done"
+                        className="mt-0.5 shrink-0 text-success"
+                      />
+                    ) : (
+                      <Circle size={12} aria-label="To do" className="mt-0.5 shrink-0" />
+                    )}
+                    <span>{todo}</span>
+                  </li>
+                ))}
+              </ul>
             )}
           </span>
         </li>

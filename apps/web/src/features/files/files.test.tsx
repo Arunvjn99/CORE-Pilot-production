@@ -81,7 +81,7 @@ function stubApi(overrides: Record<string, Handler> = {}) {
 
 const calls = (fetchMock: ReturnType<typeof stubApi>, method: string, path: string) =>
   fetchMock.mock.calls
-    .filter(([p, init]) => (init?.method ?? 'GET') === method && p.startsWith(path))
+    .filter(([p, init]) => (init?.method ?? 'GET') === method && p.split('?')[0] === path)
     .map(([p, init]) => ({
       path: p,
       body: init?.body ? (JSON.parse(init.body as string) as unknown) : null,
