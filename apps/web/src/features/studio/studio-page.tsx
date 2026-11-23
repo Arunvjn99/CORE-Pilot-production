@@ -31,7 +31,15 @@ import {
 } from '../projects/projects-api';
 import { PageList } from '../projects/workspace/page-list';
 import { SettingsSection } from '../projects/workspace/sections';
-import { type Camera, Canvas, type Device, DEVICES, fitCamera, focusCamera } from './canvas';
+import {
+  type Camera,
+  Canvas,
+  type CanvasPin,
+  type Device,
+  DEVICES,
+  fitCamera,
+  focusCamera,
+} from './canvas';
 import {
   CanvasToolbar,
   type Tool,
@@ -39,6 +47,8 @@ import {
   useEditorShortcuts,
 } from './canvas-toolbar';
 import { ChatPanel } from './chat-panel';
+import { useComments } from './comments-api';
+import { CommentsPanel, type PendingPin } from './comments-panel';
 import { useEditHistory } from './edit-history';
 import { FileMenu } from './file-menu';
 import { PreviewFrame } from './preview-frame';
@@ -99,6 +109,10 @@ function Studio({
   const [leftTab, setLeftTab] = useState('ai');
   const [panels, setPanels] = useState(true);
   const [tool, setTool] = useState<Tool>('move');
+  const [includeResolved, setIncludeResolved] = useState(false);
+  const [pendingPin, setPendingPin] = useState<PendingPin | null>(null);
+  const [activeComment, setActiveComment] = useState<string | null>(null);
+  const comments = useComments(projectId, includeResolved);
   const pageMutations = usePageMutations(teamId, projectId);
   const opened = useRef<string | null>(null);
   const fitted = useRef(false);
@@ -148,6 +162,34 @@ function Studio({
   const writable = hasPermission(session, 'projects:write') && project.data?.status === 'active';
 
   const history = useEditHistory(projectId, screenList, screens.data?.revision ?? 0);
+  const pinned = (comments.data ?? []).filter(
+    (t) => t.pageId !== null && t.x !== null && t.y !== null,
+  );
+  const pins: CanvasPin[] = [
+    ...pinned.map((t, i) => ({
+      id: t.id,
+      pageId: t.pageId ?? '',
+      x: t.x ?? 0,
+      y: t.y ?? 0,
+      number: i + 1,
+      label: `Comment ${String(i + 1)} by ${t.authorName ?? 'former member'}: ${t.body.slice(0, 40)}`,
+      active: t.id === activeComment,
+      resolved: t.resolvedAt !== null,
+    })),
+    ...(pendingPin
+      ? [
+          {
+            id: 'pending',
+            ...pendingPin,
+            number: 0,
+            label: 'New comment',
+            active: true,
+            resolved: false,
+            pending: true,
+          },
+        ]
+      : []),
+  ];
 
   const actions: ToolbarActions = {
     setTool,
@@ -170,6 +212,7 @@ function Studio({
     clearSelection: () => {
       setSelection(null);
       setClearKey((k) => k + 1);
+      setPendingPin(null);
     },
     askAi: () => {
       setPanels(true);
@@ -399,6 +442,9 @@ function Studio({
                 <Tabs.Trigger value="ai" className={panelTab}>
                   AI
                 </Tabs.Trigger>
+                <Tabs.Trigger value="comments" className={panelTab}>
+                  Comments
+                </Tabs.Trigger>
                 <Tabs.Trigger value="history" className={panelTab}>
                   History
                 </Tabs.Trigger>
@@ -420,6 +466,24 @@ function Studio({
               </Tabs.Content>
               <Tabs.Content value="ai" className="min-h-0 flex-1">
                 <ChatPanel projectId={projectId} canWrite={canWrite} />
+              </Tabs.Content>
+              <Tabs.Content value="comments" className="min-h-0 flex-1 overflow-y-auto p-3">
+                <CommentsPanel
+                  projectId={projectId}
+                  threads={comments.data}
+                  screens={screenList}
+                  userId={session.user.id}
+                  canWrite={canWrite}
+                  canModerate={hasPermission(session, 'projects:delete')}
+                  includeResolved={includeResolved}
+                  onIncludeResolved={setIncludeResolved}
+                  pendingPin={pendingPin}
+                  onCancelPin={() => {
+                    setPendingPin(null);
+                  }}
+                  activeId={activeComment}
+                  onSelect={setActiveComment}
+                />
               </Tabs.Content>
               <Tabs.Content value="history" className="min-h-0 flex-1 overflow-y-auto p-3">
                 <HistoryPanel projectId={projectId} canWrite={canWrite} />
@@ -459,7 +523,18 @@ function Studio({
               }}
               onSelectElement={setSelection}
               clearSelectionKey={clearKey}
-              tool={tool === 'hand' ? 'hand' : 'move'}
+              tool={tool}
+              pins={pins}
+              onPlacePin={(pageId, x, y) => {
+                setPendingPin({ pageId, x, y });
+                setPanels(true);
+                setLeftTab('comments');
+              }}
+              onOpenPin={(id) => {
+                setActiveComment(id);
+                setPanels(true);
+                setLeftTab('comments');
+              }}
             />
           )}
           {screens.data && <CanvasToolbar tool={tool} canWrite={canWrite} actions={actions} />}

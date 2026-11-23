@@ -61,6 +61,19 @@ export function fitCamera(
   };
 }
 
+/** A comment pin on a screen; x and y are 0..1 of the screen's size. */
+export interface CanvasPin {
+  id: string;
+  pageId: string;
+  x: number;
+  y: number;
+  number: number;
+  label: string;
+  active: boolean;
+  resolved: boolean;
+  pending?: boolean;
+}
+
 /**
  * Infinite canvas: screens are live preview frames laid out as a numbered storyboard. Wheel pans,
  * ctrl/⌘ + wheel (or pinch) zooms at the cursor, dragging the empty canvas pans. The camera is a CSS
@@ -79,6 +92,9 @@ export function Canvas({
   clearSelectionKey,
   overlay,
   tool = 'move',
+  pins = [],
+  onPlacePin,
+  onOpenPin,
 }: {
   screens: Screen[];
   tokensCss: string;
@@ -91,8 +107,11 @@ export function Canvas({
   onSelectElement: (element: SelectedElement) => void;
   clearSelectionKey: number;
   overlay?: ReactNode;
-  /** Hand: drag anywhere (screens included) pans; screens do not receive clicks. */
-  tool?: 'move' | 'hand';
+  /** Hand: drag anywhere (screens included) pans. Comment: a click on a screen places a pin. */
+  tool?: 'move' | 'hand' | 'comment';
+  pins?: CanvasPin[];
+  onPlacePin?: (pageId: string, x: number, y: number) => void;
+  onOpenPin?: (id: string) => void;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; camera: Camera } | null>(null);
@@ -210,35 +229,73 @@ export function Canvas({
                   width,
                   height,
                   pointerEvents: panning || tool === 'hand' ? 'none' : 'auto',
+                  cursor: tool === 'comment' ? 'crosshair' : undefined,
                 }}
                 onPointerDown={() => {
                   onSelectScreen(screen.filePath);
                 }}
+                onClick={(event) => {
+                  if (tool !== 'comment' || !onPlacePin) return;
+                  if ((event.target as HTMLElement).closest('[data-pin]')) return;
+                  const r = event.currentTarget.getBoundingClientRect();
+                  const clamp = (v: number) => Math.min(1, Math.max(0, v));
+                  onPlacePin(
+                    screen.pageId,
+                    clamp((event.clientX - r.left) / r.width),
+                    clamp((event.clientY - r.top) / r.height),
+                  );
+                }}
               >
-                <PreviewFrame
-                  previewOrigin={previewOrigin}
-                  path={screen.filePath}
-                  code={screen.code}
-                  tokensCss={tokensCss}
-                  mode="design"
-                  title={`Preview of ${screen.name}`}
-                  width={width}
-                  height={height}
-                  clearSelectionKey={selected ? undefined : clearSelectionKey}
-                  onSelect={(element) => {
-                    onSelectScreen(screen.filePath);
-                    onSelectElement(element);
-                  }}
-                  onError={(message) => {
-                    setErrors((current) =>
-                      message
-                        ? { ...current, [screen.filePath]: message }
-                        : Object.fromEntries(
-                            Object.entries(current).filter(([k]) => k !== screen.filePath),
-                          ),
-                    );
-                  }}
-                />
+                <div style={{ pointerEvents: tool === 'comment' ? 'none' : 'auto' }}>
+                  <PreviewFrame
+                    previewOrigin={previewOrigin}
+                    path={screen.filePath}
+                    code={screen.code}
+                    tokensCss={tokensCss}
+                    mode="design"
+                    title={`Preview of ${screen.name}`}
+                    width={width}
+                    height={height}
+                    clearSelectionKey={selected ? undefined : clearSelectionKey}
+                    onSelect={(element) => {
+                      onSelectScreen(screen.filePath);
+                      onSelectElement(element);
+                    }}
+                    onError={(message) => {
+                      setErrors((current) =>
+                        message
+                          ? { ...current, [screen.filePath]: message }
+                          : Object.fromEntries(
+                              Object.entries(current).filter(([k]) => k !== screen.filePath),
+                            ),
+                      );
+                    }}
+                  />
+                </div>
+                {pins
+                  .filter((pin) => pin.pageId === screen.pageId)
+                  .map((pin) => (
+                    <button
+                      key={pin.id}
+                      type="button"
+                      data-pin
+                      aria-label={pin.label}
+                      aria-pressed={pin.active}
+                      className={`absolute flex h-7 min-w-7 items-center justify-center rounded-full rounded-bl-none border-2 border-white px-1.5 text-xs font-semibold shadow-md focus-visible:outline-2 focus-visible:outline-accent ${pin.resolved ? 'bg-surface-muted text-text-muted' : 'bg-accent text-accent-contrast'} ${pin.active ? 'ring-2 ring-accent ring-offset-2' : ''}`}
+                      style={{
+                        left: `${String(pin.x * 100)}%`,
+                        top: `${String(pin.y * 100)}%`,
+                        // Pins keep their size on screen at any zoom; the tip marks the spot.
+                        transform: `translate(0, -100%) scale(${String(1 / camera.zoom)})`,
+                        transformOrigin: 'bottom left',
+                      }}
+                      onClick={() => {
+                        if (!pin.pending) onOpenPin?.(pin.id);
+                      }}
+                    >
+                      {pin.pending ? '+' : pin.number}
+                    </button>
+                  ))}
                 {errors[screen.filePath] && (
                   <div
                     role="alert"

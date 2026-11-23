@@ -181,6 +181,29 @@ test('designer prompts the agents, edits a screen and plays the prototype', asyn
   await page.screenshot({ path: `${SCREENSHOTS}/studio-play.png` });
   await player.getByRole('button', { name: 'Close prototype' }).click();
 
+  // Comments: pin a comment on a screen with the comment tool, reply, then resolve it.
+  await page.locator('body').focus();
+  await page.keyboard.press('c');
+  const homeFrame = page.locator('iframe[title="Preview of Home"]');
+  const box = await homeFrame.boundingBox();
+  if (!box) throw new Error('Home screen not visible');
+  await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.3);
+  const comments = page.getByRole('region', { name: 'Comments' });
+  await expect(comments.getByText('New comment on Home')).toBeVisible();
+  await comments.getByLabel('Add a comment').fill('Make the button full width');
+  await comments.getByRole('button', { name: 'Post' }).click();
+  const pin = page.getByRole('button', { name: /^Comment 1 by Company Admin: Make the button/ });
+  await expect(pin).toBeVisible();
+  const thread = comments.getByRole('listitem', { name: /Make the button full width/ });
+  await thread.getByLabel('Reply').fill('Done in the next run');
+  await thread.getByRole('button', { name: 'Reply' }).click();
+  await expect(thread).toContainText('Done in the next run');
+  await expectAccessible(page);
+  await page.screenshot({ path: `${SCREENSHOTS}/studio-comments.png` });
+  await thread.getByRole('button', { name: 'Resolve' }).click();
+  await expect(pin).toHaveCount(0);
+  await page.keyboard.press('v');
+
   // History: download the project as a runnable React app, then restore the generated version.
   await page.getByRole('tab', { name: 'History' }).click();
   const history = page.getByRole('region', { name: 'History' });

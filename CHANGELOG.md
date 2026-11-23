@@ -2,6 +2,11 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-23 · Comments in the editor (V9b)
+
+- **Comment tool (C):** click a screen to drop a numbered pin at that spot (pins keep their size at any zoom; screens don't take clicks in comment mode); the new **Comments** tab holds the composer, file-level comments, threads with replies, resolve/reopen, edit (author) and delete (author, or team admins/owners), and "Show resolved". Clicking a pin opens its thread.
+- Tests: web unit **127** (5 new); E2E pins a comment, replies and resolves it.
+
 ### 2026-11-23 · Undo/redo (V6) and Delete forever in Trash
 
 - **Undo/redo** for canvas edits: header buttons and ⌘/Ctrl+Z, ⌘/Ctrl+Shift+Z (or Ctrl+Y). Each step writes the screen's whole previous source back with the revision check; if the screen changed since (an AI run or a teammate) undo refuses rather than overwrite, and a stale revision clears the history. Writes now update the screens cache immediately, so quick successive edits start from the right code and revision.
