@@ -15,6 +15,7 @@ import {
 } from './class-utils';
 import { DesignSystemCard } from './design-system-card';
 import { errorText } from './chat-panel';
+import type { SourceChange } from './edit-history';
 import { useRuns, useSourceEdit } from './studio-api';
 
 const tab =
@@ -426,7 +427,8 @@ export function RightPanel({
   revision: number;
   canWrite: boolean;
   onPlay: () => void;
-  onEdited: () => void;
+  /** Called after a successful edit with the screen's source before and after (for undo). */
+  onEdited: (change: SourceChange) => void;
 }) {
   const edit = useSourceEdit(projectId);
   const runs = useRuns(projectId);
@@ -441,7 +443,18 @@ export function RightPanel({
         baseRevision: revision,
         op,
       },
-      { onSuccess: onEdited },
+      {
+        onSuccess: (result) => {
+          const screen = screens.find((s) => s.filePath === selection.path);
+          if (screen)
+            onEdited({
+              pageId: screen.pageId,
+              path: screen.filePath,
+              before: screen.code,
+              after: result.code,
+            });
+        },
+      },
     );
   };
   const disabled = !canWrite || edit.isPending;

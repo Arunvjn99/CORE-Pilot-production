@@ -149,6 +149,13 @@ describe('RightPanel design tab', () => {
     await waitFor(() => {
       expect(onEdited).toHaveBeenCalledTimes(1);
     });
+    // The whole source before and after the edit, for undo/redo.
+    expect(onEdited).toHaveBeenCalledWith({
+      pageId: screens[0]?.pageId,
+      path: screens[0]?.filePath,
+      before: screens[0]?.code,
+      after: '<button />',
+    });
     expect(editsSent(fetchMock)).toEqual([
       {
         path: selection.path,

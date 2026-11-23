@@ -12,6 +12,8 @@ export interface ToolbarActions {
   zoomOut: () => void;
   togglePanels: () => void;
   clearSelection: () => void;
+  undo: () => void;
+  redo: () => void;
 }
 
 /** True when the key press belongs to a text field, menu or dialog rather than the canvas. */
@@ -23,7 +25,7 @@ const typing = (target: EventTarget | null) =>
 
 /**
  * Figma-style shortcuts: V move, H hand (or hold Space), S add screen, C comment, / ask AI,
- * Shift+1 fit, ⌘/Ctrl + / − zoom, ⌘/Ctrl + \ hide panels, Esc clears the selection.
+ * Shift+1 fit, ⌘/Ctrl + / − zoom, ⌘/Ctrl Z undo, ⌘/Ctrl Shift Z (or Y) redo, ⌘/Ctrl + \ hide panels, Esc clears the selection.
  * Keys pressed inside a screen's iframe stay in the screen (different origin).
  */
 export function useEditorShortcuts(actions: ToolbarActions, tool: Tool, canWrite: boolean) {
@@ -39,7 +41,10 @@ export function useEditorShortcuts(actions: ToolbarActions, tool: Tool, canWrite
       const mod = event.metaKey || event.ctrlKey;
       const key = event.key;
       let handled = true;
-      if (mod && (key === '=' || key === '+')) a.zoomIn();
+      if (mod && (key === 'z' || key === 'Z') && event.shiftKey) a.redo();
+      else if (mod && (key === 'z' || key === 'Z')) a.undo();
+      else if (mod && (key === 'y' || key === 'Y')) a.redo();
+      else if (mod && (key === '=' || key === '+')) a.zoomIn();
       else if (mod && key === '-') a.zoomOut();
       else if (mod && key === '\\') a.togglePanels();
       else if (mod || event.altKey) handled = false;

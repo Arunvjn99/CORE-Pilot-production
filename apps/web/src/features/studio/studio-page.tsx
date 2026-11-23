@@ -8,6 +8,8 @@ import {
   Minus,
   PanelLeftClose,
   PanelLeftOpen,
+  Redo2,
+  Undo2,
   Play,
   Plus,
   Settings2,
@@ -37,6 +39,7 @@ import {
   useEditorShortcuts,
 } from './canvas-toolbar';
 import { ChatPanel } from './chat-panel';
+import { useEditHistory } from './edit-history';
 import { FileMenu } from './file-menu';
 import { PreviewFrame } from './preview-frame';
 import { RightPanel } from './right-panel';
@@ -144,8 +147,16 @@ function Studio({
   const checkpoint = useCheckpointMutations(projectId).save;
   const writable = hasPermission(session, 'projects:write') && project.data?.status === 'active';
 
+  const history = useEditHistory(projectId, screenList, screens.data?.revision ?? 0);
+
   const actions: ToolbarActions = {
     setTool,
+    undo: () => {
+      if (writable) history.undo();
+    },
+    redo: () => {
+      if (writable) history.redo();
+    },
     fit,
     zoomIn: () => {
       setCamera((c) => ({ ...c, zoom: Math.min(2, c.zoom * 1.25) }));
@@ -261,6 +272,30 @@ function Studio({
           ))}
         </div>
         <div className="flex items-center gap-1">
+          {canWrite && (
+            <>
+              <button
+                type="button"
+                className={iconButton}
+                aria-label="Undo"
+                title="Undo (Ctrl+Z)"
+                disabled={!history.canUndo}
+                onClick={history.undo}
+              >
+                <Undo2 size={16} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className={iconButton}
+                aria-label="Redo"
+                title="Redo (Ctrl+Shift+Z)"
+                disabled={!history.canRedo}
+                onClick={history.redo}
+              >
+                <Redo2 size={16} aria-hidden="true" />
+              </button>
+            </>
+          )}
           <button
             type="button"
             className={iconButton}
@@ -332,6 +367,11 @@ function Studio({
           <UserMenu session={session} />
         </div>
       </header>
+      {history.message && (
+        <p role="status" className="px-3 pt-2 text-sm text-text-muted">
+          {history.message}
+        </p>
+      )}
       {checkpoint.error && (
         <div className="px-3 pt-2">
           <ErrorMessage>
@@ -442,7 +482,8 @@ function Studio({
                     null,
                 );
               }}
-              onEdited={() => {
+              onEdited={(change) => {
+                history.record(change);
                 void client.invalidateQueries({ queryKey: studioKeys.screens(projectId) });
               }}
             />

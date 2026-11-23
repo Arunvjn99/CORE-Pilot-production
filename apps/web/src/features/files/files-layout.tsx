@@ -12,6 +12,8 @@ export interface FilesContext {
   session: SessionResponse;
   teamId: string;
   canWrite: boolean;
+  /** Delete forever / empty Trash (team admins and owners). */
+  canDelete: boolean;
   folders: Folder[];
 }
 
@@ -149,7 +151,17 @@ function Browser({ session, teamId }: { session: SessionResponse; teamId: string
       </aside>
 
       <div className="min-w-0 flex-1">
-        <Outlet context={{ session, teamId, canWrite, folders: list } satisfies FilesContext} />
+        <Outlet
+          context={
+            {
+              session,
+              teamId,
+              canWrite,
+              canDelete: hasPermission(session, 'projects:delete'),
+              folders: list,
+            } satisfies FilesContext
+          }
+        />
       </div>
 
       {creating && (

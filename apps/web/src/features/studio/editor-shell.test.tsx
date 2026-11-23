@@ -174,6 +174,8 @@ function Harness({
     zoomOut: vi.fn(),
     togglePanels: vi.fn(),
     clearSelection: vi.fn(),
+    undo: vi.fn(),
+    redo: vi.fn(),
     ...actions,
   };
   useEditorShortcuts(all, tool, canWrite);
@@ -234,6 +236,17 @@ describe('canvas toolbar and shortcuts', () => {
     await userEvent.keyboard('s/');
     expect(actions.addScreen).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('textbox', { name: 'Some field' })).toHaveValue('s/');
+  });
+
+  it('undoes and redoes with Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y', async () => {
+    const undo = vi.fn();
+    const redo = vi.fn();
+    render(<Harness actions={{ undo, redo }} />);
+    await userEvent.keyboard(
+      '{Control>}z{/Control}{Control>}{Shift>}Z{/Shift}{/Control}{Control>}y{/Control}',
+    );
+    expect(undo).toHaveBeenCalledTimes(1);
+    expect(redo).toHaveBeenCalledTimes(2);
   });
 
   it('disables editing tools for viewers', async () => {

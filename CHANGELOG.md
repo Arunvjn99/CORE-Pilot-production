@@ -2,6 +2,12 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-23 · Undo/redo (V6) and Delete forever in Trash
+
+- **Undo/redo** for canvas edits: header buttons and ⌘/Ctrl+Z, ⌘/Ctrl+Shift+Z (or Ctrl+Y). Each step writes the screen's whole previous source back with the revision check; if the screen changed since (an AI run or a teammate) undo refuses rather than overwrite, and a stale revision clears the history. Writes now update the screens cache immediately, so quick successive edits start from the right code and revision.
+- **Trash:** Delete forever (per file) and Empty trash for team admins/owners, with confirmation; designers keep Restore only.
+- Tests: web unit **122** (7 new); E2E studio journey undoes and redoes a heading edit.
+
 ### 2026-11-23 · F3 editor shell; backend for comments, delete forever and screen writes
 
 - **F3 (UI3 editor):** `/file/:id` (old `/projects/:id` links redirect); breadcrumb `Project / File ▾` with file menu (rename, duplicate, move, version history, export, settings, move to trash); left tabs Layers · AI · History; panels toggle (Ctrl/⌘+\\); floating toolbar (move, hand/Space, add screen, comment, ask AI) and shortcuts (V, H, S, C, /, Shift+1, Ctrl/⌘ ±, Esc). "Pages" are now "screens" in the UI. Canvas labels keep a 24 px target at any zoom (axe target-size). A focused toolbar button no longer re-activates when Space is released.

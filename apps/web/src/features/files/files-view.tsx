@@ -10,7 +10,7 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import { DropdownMenu } from 'radix-ui';
+import { AlertDialog, DropdownMenu } from 'radix-ui';
 import { type KeyboardEvent, type ReactNode, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { Button, EmptyState, ErrorMessage, PageHeader } from '../../components/ui';
@@ -47,7 +47,7 @@ const menuItem =
 
 /** `/files/recent`, `/files/drafts`, `/files/project/:folderId`, `/files/trash`. */
 export function FilesView({ mode }: { mode: FilesMode }) {
-  const { teamId, canWrite, folders } = useFilesContext();
+  const { teamId, canWrite, canDelete, folders } = useFilesContext();
   const { folderId } = useParams();
   const navigate = useNavigate();
   const folder = mode === 'project' ? folders.find((f) => f.id === folderId) : undefined;
@@ -67,6 +67,8 @@ export function FilesView({ mode }: { mode: FilesMode }) {
   const [moving, setMoving] = useState<Project | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ text: string; undo?: () => void } | null>(null);
+  /** A file to delete forever, or 'all' to empty Trash. */
+  const [purging, setPurging] = useState<Project | 'all' | null>(null);
 
   // A project that was deleted (or belongs to another team) has no page here.
   if (mode === 'project' && folders.length > 0 && !folder)
@@ -109,25 +111,39 @@ export function FilesView({ mode }: { mode: FilesMode }) {
   };
   const actions = (file: Project): { label: string; run: () => void; danger?: boolean }[] =>
     mode === 'trash'
-      ? canWrite
-        ? [
-            {
-              label: 'Restore',
-              run: () => {
-                mutations.restore.mutate(file, {
-                  onSuccess: () => {
-                    setNotice({ text: `“${file.name}” restored.` });
-                  },
-                  onError: () => {
-                    setNotice({
-                      text: `“${file.name}” could not be restored. A file with this name may already exist.`,
+      ? [
+          ...(canWrite
+            ? [
+                {
+                  label: 'Restore',
+                  run: () => {
+                    mutations.restore.mutate(file, {
+                      onSuccess: () => {
+                        setNotice({ text: `“${file.name}” restored.` });
+                      },
+                      onError: () => {
+                        setNotice({
+                          text: `“${file.name}” could not be restored. A file with this name may already exist.`,
+                        });
+                      },
                     });
                   },
-                });
-              },
-            },
-          ]
-        : []
+                },
+              ]
+            : []),
+          ...(canDelete
+            ? [
+                {
+                  label: 'Delete forever',
+                  run: () => {
+                    mutations.deleteForever.reset();
+                    setPurging(file);
+                  },
+                  danger: true,
+                },
+              ]
+            : []),
+        ]
       : [
           {
             label: 'Open',
@@ -272,6 +288,16 @@ export function FilesView({ mode }: { mode: FilesMode }) {
               }}
             >
               <Plus size={16} aria-hidden="true" /> New design file
+            </Button>
+          ) : mode === 'trash' && canDelete && (files.data?.length ?? 0) > 0 ? (
+            <Button
+              variant="danger"
+              onClick={() => {
+                mutations.emptyTrash.reset();
+                setPurging('all');
+              }}
+            >
+              <Trash2 size={16} aria-hidden="true" /> Empty trash
             </Button>
           ) : undefined
         }
@@ -468,6 +494,59 @@ export function FilesView({ mode }: { mode: FilesMode }) {
           }}
         />
       )}
+      <AlertDialog.Root
+        open={purging !== null}
+        onOpenChange={(open) => {
+          if (!open) setPurging(null);
+        }}
+      >
+        <AlertDialog.Portal>
+          <AlertDialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
+          <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(28rem,calc(100vw-2rem))] -translate-1/2 space-y-4 rounded-xl border border-border bg-surface p-6 shadow-xl">
+            <AlertDialog.Title className="text-lg font-semibold">
+              {purging === 'all' ? 'Empty trash?' : `Delete “${purging?.name ?? ''}” forever?`}
+            </AlertDialog.Title>
+            <AlertDialog.Description className="text-sm text-text-muted">
+              {purging === 'all'
+                ? `All ${String(files.data?.length ?? 0)} files in Trash are deleted with their screens, history and comments.`
+                : 'The file is deleted with its screens, history and comments.'}{' '}
+              This can’t be undone.
+            </AlertDialog.Description>
+            {(purging === 'all' ? mutations.emptyTrash.error : mutations.deleteForever.error) ? (
+              <ErrorMessage>The files could not be deleted.</ErrorMessage>
+            ) : null}
+            <div className="flex justify-end gap-2">
+              <AlertDialog.Cancel asChild>
+                <Button>Cancel</Button>
+              </AlertDialog.Cancel>
+              <Button
+                variant="danger"
+                disabled={mutations.deleteForever.isPending || mutations.emptyTrash.isPending}
+                onClick={() => {
+                  if (purging === 'all')
+                    mutations.emptyTrash.mutate(undefined, {
+                      onSuccess: ({ deleted }) => {
+                        setPurging(null);
+                        setNotice({
+                          text: `${String(deleted)} ${deleted === 1 ? 'file' : 'files'} deleted forever.`,
+                        });
+                      },
+                    });
+                  else if (purging)
+                    mutations.deleteForever.mutate(purging, {
+                      onSuccess: () => {
+                        setNotice({ text: `“${purging.name}” deleted forever.` });
+                        setPurging(null);
+                      },
+                    });
+                }}
+              >
+                {purging === 'all' ? 'Empty trash' : 'Delete forever'}
+              </Button>
+            </div>
+          </AlertDialog.Content>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
       {moving && (
         <MoveFileDialog
           open

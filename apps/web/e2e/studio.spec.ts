@@ -149,6 +149,17 @@ test('designer prompts the agents, edits a screen and plays the prototype', asyn
   });
   await page.screenshot({ path: `${SCREENSHOTS}/studio-design-panel.png` });
 
+  // Undo / redo (written back to the source each time).
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await expect(signInFrame.getByRole('heading', { name: 'Welcome back' })).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.locator('body').focus();
+  await page.keyboard.press('Control+Shift+Z');
+  await expect(signInFrame.getByRole('heading', { name: 'Welcome to your plan' })).toBeVisible({
+    timeout: 30_000,
+  });
+
   // The edit is in the project source: it survives a reload.
   await page.reload();
   await expect(

@@ -11,6 +11,7 @@ import {
   type RunEvent,
   runEventSchema,
   runSchema,
+  type ScreensResponse,
   screensResponseSchema,
   type SourceEdit,
   sourceEditResultSchema,
@@ -18,7 +19,7 @@ import {
   type UpdateAgent,
   type UpdateDesignSystem,
 } from '@core-studio/contracts';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { apiGet, apiSend } from '../../lib/api-client';
@@ -194,6 +195,29 @@ export function useRunEvents(projectId: string, runId: string | null, onDone: ()
   };
 }
 
+/**
+ * Puts a write's result into the screens cache right away, so the next edit or undo starts from
+ * the new code and revision instead of waiting for the refetch.
+ */
+export function applySourceResult(
+  client: QueryClient,
+  projectId: string,
+  path: string,
+  result: { revision: number; code: string },
+) {
+  client.setQueryData<ScreensResponse>(studioKeys.screens(projectId), (current) =>
+    current
+      ? {
+          ...current,
+          revision: result.revision,
+          screens: current.screens.map((s) =>
+            s.filePath === path ? { ...s, code: result.code } : s,
+          ),
+        }
+      : current,
+  );
+}
+
 export function useSourceEdit(projectId: string) {
   const client = useQueryClient();
   return useMutation({
@@ -202,7 +226,8 @@ export function useSourceEdit(projectId: string) {
         body: edit,
         schema: sourceEditResultSchema,
       }),
-    onSuccess: async () => {
+    onSuccess: async (result, edit) => {
+      applySourceResult(client, projectId, edit.path, result);
       await client.invalidateQueries({ queryKey: studioKeys.screens(projectId) });
     },
   });

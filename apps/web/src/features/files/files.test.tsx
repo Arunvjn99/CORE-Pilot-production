@@ -286,6 +286,41 @@ describe('file browser', () => {
     });
   });
 
+  it('lets team admins delete a file forever or empty Trash, after confirmation', async () => {
+    const ADMIN = makeSession({
+      permissions: ['projects:read', 'projects:write', 'projects:delete', 'members:read'],
+    });
+    const fetchMock = stubApi({
+      [`DELETE /api/v1/projects/${OLD.id}`]: () => new Response(null, { status: 204 }),
+      'DELETE /api/v1/projects/trash': () => json(200, { deleted: 1 }),
+    });
+    renderAt('/files/trash', ADMIN);
+    await openMenu('Old idea');
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual([
+      'Restore',
+      'Delete forever',
+    ]);
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete forever' }));
+    const confirm = screen.getByRole('alertdialog', { name: 'Delete “Old idea” forever?' });
+    expect(confirm).toHaveTextContent('This can’t be undone.');
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Delete forever' }));
+    expect(await screen.findByText('“Old idea” deleted forever.')).toBeVisible();
+    expect(calls(fetchMock, 'DELETE', `/api/v1/projects/${OLD.id}`)).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Empty trash' }));
+    const empty = screen.getByRole('alertdialog', { name: 'Empty trash?' });
+    await userEvent.click(within(empty).getByRole('button', { name: 'Empty trash' }));
+    expect(await screen.findByText('1 file deleted forever.')).toBeVisible();
+    expect(calls(fetchMock, 'DELETE', '/api/v1/projects/trash')).toHaveLength(1);
+  });
+
+  it('hides permanent deletion from designers', async () => {
+    stubApi();
+    renderAt('/files/trash');
+    await card('Old idea');
+    expect(screen.queryByRole('button', { name: 'Empty trash' })).toBeNull();
+  });
+
   it('creates, renames and deletes projects from the sidebar', async () => {
     const LOANS = {
       ...PAYMENTS,

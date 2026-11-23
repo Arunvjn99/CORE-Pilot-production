@@ -1,6 +1,7 @@
 import {
   type CreateProject,
   deleteFolderResultSchema,
+  emptyTrashResultSchema,
   type Folder,
   folderSchema,
   type Project,
@@ -126,6 +127,16 @@ export function useFileMutations(teamId: string) {
     }),
     restore: useMutation({
       mutationFn: (file: Project) => patch(file, { status: 'active' }),
+      onSuccess: refresh,
+    }),
+    /** Permanent: only for files in Trash (team admins/owners). */
+    deleteForever: useMutation({
+      mutationFn: (file: Project) => apiSend('DELETE', `/api/v1/projects/${file.id}`),
+      onSuccess: refresh,
+    }),
+    emptyTrash: useMutation({
+      mutationFn: () =>
+        apiSend('DELETE', '/api/v1/projects/trash', { schema: emptyTrashResultSchema }),
       onSuccess: refresh,
     }),
   };
