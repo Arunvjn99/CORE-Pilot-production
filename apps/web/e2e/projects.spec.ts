@@ -53,18 +53,40 @@ test('acceptance: project → new design file → screens, persisted', async ({ 
   await expect(newFile.getByLabel('Design system')).toHaveValue('core-2');
   await expectAccessible(page);
   await newFile.getByRole('button', { name: 'Create file' }).click();
-  await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/file\/[0-9a-f-]{36}$/);
   await expect(page.getByRole('heading', { name: fileName, level: 1 })).toBeVisible();
 
+  // Editor shell (UI3): breadcrumb back to the project, file menu, floating toolbar and shortcuts
+  await expect(
+    page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: projectName }),
+  ).toHaveAttribute('href', projectUrl);
+  await page.getByRole('button', { name: `${fileName}, file menu` }).click();
+  await expect(page.getByRole('menuitem', { name: 'Version history' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  const tools = page.getByRole('toolbar', { name: 'Tools' });
+  await page.keyboard.press('h');
+  await expect(tools.getByRole('button', { name: 'Hand (H)' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await page.keyboard.press('v');
+  await tools.getByRole('button', { name: 'Add screen (S)' }).click();
+  await expect(page.getByRole('region', { name: /^Screen \d+: Screen 2$/ })).toBeVisible();
+  await page.keyboard.press('Control+Backslash');
+  await expect(page.getByRole('complementary', { name: 'Inspector' })).toHaveCount(0);
+  await page.keyboard.press('Control+Backslash');
+  await expectAccessible(page);
+  await page.screenshot({ path: `${SCREENSHOTS}/editor-shell.png` });
+
   // Screens: add, navigate, rename, delete (Pages tab)
-  await page.getByRole('tab', { name: 'Pages' }).click();
-  const sidebar = page.getByRole('complementary', { name: 'Assistant and pages' });
+  await page.getByRole('tab', { name: 'Layers' }).click();
+  const sidebar = page.getByRole('complementary', { name: 'File panel' });
   await expect(sidebar.getByRole('link', { name: /Home/ })).toBeVisible();
   for (const name of ['Cart', 'Payment Details']) {
-    await sidebar.getByRole('button', { name: 'Add page' }).click();
-    const dialog = page.getByRole('dialog', { name: 'Add page' });
-    await dialog.getByLabel('Page name').fill(name);
-    await dialog.getByRole('button', { name: 'Add page' }).click();
+    await sidebar.getByRole('button', { name: 'Add screen' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Add screen' });
+    await dialog.getByLabel('Screen name').fill(name);
+    await dialog.getByRole('button', { name: 'Add screen' }).click();
     await expect(dialog).toHaveCount(0);
   }
   await expect(page.getByRole('region', { name: /^Screen \d+: Cart$/ })).toBeVisible();
@@ -77,26 +99,26 @@ test('acceptance: project → new design file → screens, persisted', async ({ 
     'aria-current',
     'page',
   );
-  await sidebar.getByRole('button', { name: 'Actions for page Payment Details' }).click();
+  await sidebar.getByRole('button', { name: 'Actions for screen Payment Details' }).click();
   await page.getByRole('menuitem', { name: 'Rename' }).click();
-  const rename = page.getByRole('dialog', { name: 'Rename page' });
-  await rename.getByLabel('Page name').fill('Payment');
+  const rename = page.getByRole('dialog', { name: 'Rename screen' });
+  await rename.getByLabel('Screen name').fill('Payment');
   await rename.getByLabel('Route').fill('/payment');
   await rename.getByRole('button', { name: 'Save' }).click();
   await expect(sidebar.getByRole('link', { name: /Payment.*\/payment$/ })).toBeVisible();
   await expectAccessible(page);
   await page.screenshot({ path: `${SCREENSHOTS}/workspace-light.png` });
-  await sidebar.getByRole('button', { name: 'Actions for page Cart' }).click();
+  await sidebar.getByRole('button', { name: 'Actions for screen Cart' }).click();
   await page.getByRole('menuitem', { name: 'Delete' }).click();
   await page
-    .getByRole('alertdialog', { name: 'Delete page “Cart”?' })
-    .getByRole('button', { name: 'Delete page' })
+    .getByRole('alertdialog', { name: 'Delete screen “Cart”?' })
+    .getByRole('button', { name: 'Delete screen' })
     .click();
   await expect(sidebar.getByRole('link', { name: /Cart/ })).toHaveCount(0);
 
   // Back in the browser: the file shows in its project and in Recents, not in Drafts
   await page.goto(projectUrl);
-  await expect(card(page, fileName)).toContainText('2 screens');
+  await expect(card(page, fileName)).toContainText('3 screens');
   await page.screenshot({ path: `${SCREENSHOTS}/files-project-light.png`, fullPage: true });
   await files(page).getByRole('link', { name: 'Recents' }).click();
   await expect(card(page, fileName)).toContainText(projectName);
@@ -121,7 +143,7 @@ test('file CRUD: rename, duplicate, move, trash with undo, restore; delete a pro
 
   await fileMenu(page, renamed, 'Duplicate');
   await expect(page.getByText(`Duplicated as “${renamed} (copy)”.`)).toBeVisible();
-  await expect(card(page, `${renamed} (copy)`)).toContainText('2 screens');
+  await expect(card(page, `${renamed} (copy)`)).toContainText('3 screens');
 
   await fileMenu(page, `${renamed} (copy)`, 'Move to…');
   const move = page.getByRole('dialog', { name: `Move “${renamed} (copy)”` });
@@ -180,7 +202,7 @@ test('dark theme and tablet layout', async ({ browser }) => {
   await page.getByRole('list', { name: 'Recents files' }).getByRole('link').first().click();
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await expect(page.getByRole('complementary', { name: 'Assistant and pages' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'File panel' })).toBeVisible();
   await expectAccessible(page);
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
@@ -200,7 +222,7 @@ test('dark file browser and editor on desktop', async ({ browser }) => {
   await ensureTeam(page);
   await page.screenshot({ path: `${SCREENSHOTS}/files-recents-dark.png`, fullPage: true });
   await page.getByRole('list', { name: 'Recents files' }).getByRole('link').first().click();
-  await expect(page.getByRole('complementary', { name: 'Assistant and pages' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'File panel' })).toBeVisible();
   await expectAccessible(page);
   await page.screenshot({ path: `${SCREENSHOTS}/workspace-dark-desktop.png` });
   await context.close();

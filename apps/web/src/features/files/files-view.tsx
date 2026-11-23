@@ -22,8 +22,8 @@ import { useFilesContext } from './files-layout';
 
 export type FilesMode = 'recent' | 'drafts' | 'project' | 'trash';
 
-/** The editor of a file (F3 moves it to /file/:id). */
-export const filePath = (id: string) => `/projects/${id}`;
+/** The editor of a file. */
+export const filePath = (id: string) => `/file/${id}`;
 
 const SORTS: { value: ProjectSort; label: string }[] = [
   { value: 'updated', label: 'Last modified' },

@@ -6,6 +6,8 @@ import {
   Download,
   Maximize,
   Minus,
+  PanelLeftClose,
+  PanelLeftOpen,
   Play,
   Plus,
   Settings2,
@@ -13,17 +15,29 @@ import {
 } from 'lucide-react';
 import { Dialog, Tabs } from 'radix-ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router';
+import { Link, Navigate, useLocation, useParams } from 'react-router';
 import { Button, EmptyState, ErrorMessage } from '../../components/ui';
 import { UserMenu } from '../../app/user-menu';
 import { ApiError } from '../../lib/api-client';
 import { hasPermission } from '../auth/permissions';
 import { useSession } from '../auth/use-session';
-import { usePages, useProject, useProjectMutations } from '../projects/projects-api';
+import {
+  usePageMutations,
+  usePages,
+  useProject,
+  useProjectMutations,
+} from '../projects/projects-api';
 import { PageList } from '../projects/workspace/page-list';
 import { SettingsSection } from '../projects/workspace/sections';
 import { type Camera, Canvas, type Device, DEVICES, fitCamera, focusCamera } from './canvas';
+import {
+  CanvasToolbar,
+  type Tool,
+  type ToolbarActions,
+  useEditorShortcuts,
+} from './canvas-toolbar';
 import { ChatPanel } from './chat-panel';
+import { FileMenu } from './file-menu';
 import { PreviewFrame } from './preview-frame';
 import { RightPanel } from './right-panel';
 import { HistoryPanel } from './history-panel';
@@ -40,12 +54,19 @@ const panelTab =
 const iconButton =
   'rounded-md p-1.5 text-text-muted hover:bg-surface-muted hover:text-text focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40';
 
-/** `/projects/:projectId` — the design studio: chat + pages | canvas | design/prototype/verify. */
+/** Old editor links (`/projects/:id?page=…`) keep working. */
+export function LegacyFileRedirect() {
+  const { projectId = '' } = useParams();
+  const { search } = useLocation();
+  return <Navigate to={`/file/${projectId}${search}`} replace />;
+}
+
+/** `/file/:projectId` — the editor (Figma UI3): layers · AI · history | canvas | design/prototype/verify. */
 export function StudioRoute() {
   const { data: session } = useSession();
   const { projectId = '' } = useParams();
   if (!session) return null;
-  if (!session.activeOrganizationId) return <Navigate to="/projects" replace />;
+  if (!session.activeOrganizationId) return <Navigate to="/files" replace />;
   return <Studio session={session} teamId={session.activeOrganizationId} projectId={projectId} />;
 }
 
@@ -72,6 +93,10 @@ function Studio({
   const [clearKey, setClearKey] = useState(0);
   const [playing, setPlaying] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [leftTab, setLeftTab] = useState('ai');
+  const [panels, setPanels] = useState(true);
+  const [tool, setTool] = useState<Tool>('move');
+  const pageMutations = usePageMutations(teamId, projectId);
   const opened = useRef<string | null>(null);
   const fitted = useRef(false);
 
@@ -117,6 +142,50 @@ function Studio({
   };
 
   const checkpoint = useCheckpointMutations(projectId).save;
+  const writable = hasPermission(session, 'projects:write') && project.data?.status === 'active';
+
+  const actions: ToolbarActions = {
+    setTool,
+    fit,
+    zoomIn: () => {
+      setCamera((c) => ({ ...c, zoom: Math.min(2, c.zoom * 1.25) }));
+    },
+    zoomOut: () => {
+      setCamera((c) => ({ ...c, zoom: Math.max(0.05, c.zoom / 1.25) }));
+    },
+    togglePanels: () => {
+      setPanels((p) => !p);
+    },
+    clearSelection: () => {
+      setSelection(null);
+      setClearKey((k) => k + 1);
+    },
+    askAi: () => {
+      setPanels(true);
+      setLeftTab('ai');
+      requestAnimationFrame(() => {
+        document.querySelector<HTMLTextAreaElement>('#studio-left textarea')?.focus();
+      });
+    },
+    // Like Figma's frame tool: a new, empty screen with the next free name and route.
+    addScreen: () => {
+      if (!writable || pageMutations.create.isPending) return;
+      const routes = new Set((pages.data ?? []).map((p) => p.route));
+      let n = (pages.data?.length ?? 0) + 1;
+      while (routes.has(`/screen-${String(n)}`)) n += 1;
+      pageMutations.create.mutate(
+        { name: `Screen ${String(n)}`, route: `/screen-${String(n)}` },
+        {
+          onSuccess: () => {
+            setPanels(true);
+            setLeftTab('layers');
+            fitted.current = false; // fit again once the new screen arrives
+          },
+        },
+      );
+    },
+  };
+  useEditorShortcuts(actions, tool, writable);
 
   if (project.isError) {
     const missing = project.error instanceof ApiError && project.error.status === 404;
@@ -124,10 +193,10 @@ function Studio({
       <div className="mx-auto max-w-lg p-8">
         <EmptyState
           icon={<ArrowLeft size={28} />}
-          title={missing ? 'Project not found' : 'Project could not be loaded'}
+          title={missing ? 'File not found' : 'File could not be loaded'}
         >
-          <Link to="/projects" className="text-accent underline">
-            Back to projects
+          <Link to="/files" className="text-accent underline">
+            Back to files
           </Link>
         </EmptyState>
       </div>
@@ -136,7 +205,7 @@ function Studio({
   if (project.isPending || config.isPending) {
     return (
       <p role="status" className="p-8 text-sm text-text-muted">
-        Opening project…
+        Opening file…
       </p>
     );
   }
@@ -149,19 +218,32 @@ function Studio({
   return (
     <div className="flex h-dvh flex-col bg-surface">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2 md:px-3">
-        <Link
-          to="/projects"
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-sm text-text-muted hover:bg-surface-muted hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
+        <button
+          type="button"
+          className={iconButton}
+          aria-label={panels ? 'Hide panels' : 'Show panels'}
+          title={`${panels ? 'Hide' : 'Show'} panels (Ctrl+\\)`}
+          aria-pressed={!panels}
+          onClick={actions.togglePanels}
         >
-          <ArrowLeft size={16} aria-hidden="true" />
-          <span className="hidden sm:inline">Projects</span>
-        </Link>
-        <h1 className="min-w-0 truncate text-sm font-semibold">{data.name}</h1>
-        {data.status === 'archived' && (
-          <span className="rounded-full border border-border px-2 py-0.5 text-xs text-text-muted">
-            Archived · read-only
-          </span>
-        )}
+          {panels ? (
+            <PanelLeftClose size={16} aria-hidden="true" />
+          ) : (
+            <PanelLeftOpen size={16} aria-hidden="true" />
+          )}
+        </button>
+        <FileMenu
+          file={data}
+          teamId={teamId}
+          canWrite={canWrite}
+          onShowHistory={() => {
+            setPanels(true);
+            setLeftTab('history');
+          }}
+          onOpenSettings={() => {
+            setSettingsOpen(true);
+          }}
+        />
         <div className="mx-auto flex items-center gap-1" role="group" aria-label="Device">
           {(Object.keys(DEVICES) as Device[]).map((d) => (
             <button
@@ -231,7 +313,7 @@ function Studio({
           <button
             type="button"
             className={iconButton}
-            aria-label="Project settings"
+            aria-label="File settings"
             onClick={() => {
               setSettingsOpen(true);
             }}
@@ -245,7 +327,7 @@ function Studio({
             }}
             disabled={screenList.length === 0}
           >
-            <Play size={14} aria-hidden="true" /> Play
+            <Play size={14} aria-hidden="true" /> Present
           </Button>
           <UserMenu session={session} />
         </div>
@@ -259,45 +341,52 @@ function Studio({
       )}
 
       <div className="flex min-h-0 flex-1">
-        <aside
-          aria-label="Assistant and pages"
-          className="flex w-80 shrink-0 flex-col border-r border-border"
-        >
-          <Tabs.Root defaultValue="chat" className="flex min-h-0 flex-1 flex-col">
-            <Tabs.List aria-label="Left panel" className="flex border-b border-border">
-              <Tabs.Trigger value="chat" className={panelTab}>
-                AI agents
-              </Tabs.Trigger>
-              <Tabs.Trigger value="pages" className={panelTab}>
-                Pages
-              </Tabs.Trigger>
-              <Tabs.Trigger value="history" className={panelTab}>
-                History
-              </Tabs.Trigger>
-            </Tabs.List>
-            <Tabs.Content value="chat" className="min-h-0 flex-1">
-              <ChatPanel projectId={projectId} canWrite={canWrite} />
-            </Tabs.Content>
-            <Tabs.Content value="pages" className="min-h-0 flex-1 overflow-y-auto p-3">
-              {pages.data && (
-                <PageList
-                  teamId={teamId}
-                  projectId={projectId}
-                  pages={pages.data}
-                  currentPageId={
-                    screenList.find((s) => s.filePath === selectedPath)?.pageId ?? null
-                  }
-                  hrefFor={(pageId) => `/projects/${projectId}?page=${pageId}`}
-                  canEdit={canWrite}
-                  onNavigate={focusPage}
-                />
-              )}
-            </Tabs.Content>
-            <Tabs.Content value="history" className="min-h-0 flex-1 overflow-y-auto p-3">
-              <HistoryPanel projectId={projectId} canWrite={canWrite} />
-            </Tabs.Content>
-          </Tabs.Root>
-        </aside>
+        {panels && (
+          <aside
+            id="studio-left"
+            aria-label="File panel"
+            className="flex w-80 shrink-0 flex-col border-r border-border"
+          >
+            <Tabs.Root
+              value={leftTab}
+              onValueChange={setLeftTab}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              <Tabs.List aria-label="Left panel" className="flex border-b border-border">
+                <Tabs.Trigger value="layers" className={panelTab}>
+                  Layers
+                </Tabs.Trigger>
+                <Tabs.Trigger value="ai" className={panelTab}>
+                  AI
+                </Tabs.Trigger>
+                <Tabs.Trigger value="history" className={panelTab}>
+                  History
+                </Tabs.Trigger>
+              </Tabs.List>
+              <Tabs.Content value="layers" className="min-h-0 flex-1 overflow-y-auto p-3">
+                {pages.data && (
+                  <PageList
+                    teamId={teamId}
+                    projectId={projectId}
+                    pages={pages.data}
+                    currentPageId={
+                      screenList.find((s) => s.filePath === selectedPath)?.pageId ?? null
+                    }
+                    hrefFor={(pageId) => `/file/${projectId}?page=${pageId}`}
+                    canEdit={canWrite}
+                    onNavigate={focusPage}
+                  />
+                )}
+              </Tabs.Content>
+              <Tabs.Content value="ai" className="min-h-0 flex-1">
+                <ChatPanel projectId={projectId} canWrite={canWrite} />
+              </Tabs.Content>
+              <Tabs.Content value="history" className="min-h-0 flex-1 overflow-y-auto p-3">
+                <HistoryPanel projectId={projectId} canWrite={canWrite} />
+              </Tabs.Content>
+            </Tabs.Root>
+          </aside>
+        )}
 
         <main id="studio-canvas" ref={viewport} className="relative min-w-0 flex-1">
           {screens.isError && (
@@ -330,31 +419,35 @@ function Studio({
               }}
               onSelectElement={setSelection}
               clearSelectionKey={clearKey}
+              tool={tool === 'hand' ? 'hand' : 'move'}
             />
           )}
+          {screens.data && <CanvasToolbar tool={tool} canWrite={canWrite} actions={actions} />}
         </main>
 
-        <aside aria-label="Inspector" className="w-80 shrink-0 border-l border-border">
-          <RightPanel
-            projectId={projectId}
-            teamId={teamId}
-            selection={selection}
-            tokensCss={tokensCss}
-            screens={screenList}
-            revision={screens.data?.revision ?? 0}
-            canWrite={canWrite}
-            onPlay={() => {
-              setPlaying(
-                screenList.find((s) => s.filePath === selectedPath)?.route ??
-                  screenList[0]?.route ??
-                  null,
-              );
-            }}
-            onEdited={() => {
-              void client.invalidateQueries({ queryKey: studioKeys.screens(projectId) });
-            }}
-          />
-        </aside>
+        {panels && (
+          <aside aria-label="Inspector" className="w-80 shrink-0 border-l border-border">
+            <RightPanel
+              projectId={projectId}
+              teamId={teamId}
+              selection={selection}
+              tokensCss={tokensCss}
+              screens={screenList}
+              revision={screens.data?.revision ?? 0}
+              canWrite={canWrite}
+              onPlay={() => {
+                setPlaying(
+                  screenList.find((s) => s.filePath === selectedPath)?.route ??
+                    screenList[0]?.route ??
+                    null,
+                );
+              }}
+              onEdited={() => {
+                void client.invalidateQueries({ queryKey: studioKeys.screens(projectId) });
+              }}
+            />
+          </aside>
+        )}
       </div>
 
       <Dialog.Root
@@ -408,7 +501,7 @@ function Studio({
             aria-describedby={undefined}
             className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100vh-2rem)] w-[min(44rem,calc(100vw-2rem))] -translate-1/2 overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-xl"
           >
-            <Dialog.Title className="mb-4 text-lg font-semibold">Project settings</Dialog.Title>
+            <Dialog.Title className="mb-4 text-lg font-semibold">File settings</Dialog.Title>
             <SettingsSection
               project={data}
               teamId={teamId}

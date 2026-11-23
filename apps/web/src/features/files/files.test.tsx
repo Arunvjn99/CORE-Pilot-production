@@ -103,7 +103,7 @@ function renderAt(path: string, session = DESIGNER) {
           { path: 'trash', element: <FilesView mode="trash" /> },
         ],
       },
-      { path: '/projects/:id', element: <p>Editor</p> },
+      { path: '/file/:id', element: <p>Editor</p> },
     ],
     { initialEntries: [path] },
   );
@@ -179,7 +179,7 @@ describe('file browser', () => {
     await userEvent.selectOptions(within(dialog).getByLabelText('Design system'), 'minimal');
     await userEvent.click(within(dialog).getByRole('button', { name: 'Create file' }));
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe(`/projects/${created.id}`);
+      expect(router.state.location.pathname).toBe(`/file/${created.id}`);
     });
     expect(calls(fetchMock, 'POST', '/api/v1/projects')[0]?.body).toEqual({
       name: 'Loans',

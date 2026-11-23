@@ -37,7 +37,7 @@ function PageForm({
     >
       <div className="space-y-1">
         <label htmlFor={nameId} className="text-sm font-medium">
-          Page name
+          Screen name
         </label>
         <input
           id={nameId}
@@ -134,12 +134,12 @@ export function PageList({
           id="pages-heading"
           className="text-xs font-semibold tracking-wide text-text-muted uppercase"
         >
-          Pages
+          Screens
         </h2>
         {canEdit && (
           <button
             type="button"
-            aria-label="Add page"
+            aria-label="Add screen"
             onClick={() => {
               setAddOpen(true);
             }}
@@ -170,7 +170,7 @@ export function PageList({
               {canEdit && (
                 <DropdownMenu.Root>
                   <DropdownMenu.Trigger
-                    aria-label={`Actions for page ${page.name}`}
+                    aria-label={`Actions for screen ${page.name}`}
                     className="rounded-md p-1 text-text-muted hover:bg-surface-muted hover:text-text focus-visible:outline-2 focus-visible:outline-accent"
                   >
                     <MoreHorizontal size={16} aria-hidden="true" />
@@ -214,11 +214,11 @@ export function PageList({
           setAddOpen(open);
           if (!open) mutations.create.reset();
         }}
-        title="Add page"
-        description="Pages become routes of the React app."
+        title="Add screen"
+        description="Each screen is a route of the React app."
       >
         <PageForm
-          submitLabel="Add page"
+          submitLabel="Add screen"
           pending={mutations.create.isPending}
           error={mutations.create.error}
           onCancel={() => {
@@ -242,7 +242,7 @@ export function PageList({
             mutations.update.reset();
           }
         }}
-        title="Rename page"
+        title="Rename screen"
       >
         {renaming && (
           <PageForm
@@ -280,7 +280,7 @@ export function PageList({
           <AlertDialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
           <AlertDialog.Content className="fixed top-1/2 left-1/2 z-50 w-[min(28rem,calc(100vw-2rem))] -translate-1/2 space-y-4 rounded-xl border border-border bg-surface p-6 shadow-xl">
             <AlertDialog.Title className="text-lg font-semibold">
-              Delete page “{deleting?.name}”?
+              Delete screen “{deleting?.name}”?
             </AlertDialog.Title>
             <AlertDialog.Description className="text-sm text-text-muted">
               The page and its route <code>{deleting?.route}</code> are removed from this project.
@@ -307,7 +307,7 @@ export function PageList({
                   });
                 }}
               >
-                {mutations.remove.isPending ? 'Deleting…' : 'Delete page'}
+                {mutations.remove.isPending ? 'Deleting…' : 'Delete screen'}
               </Button>
             </div>
           </AlertDialog.Content>

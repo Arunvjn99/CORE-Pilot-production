@@ -78,6 +78,7 @@ export function Canvas({
   onSelectElement,
   clearSelectionKey,
   overlay,
+  tool = 'move',
 }: {
   screens: Screen[];
   tokensCss: string;
@@ -90,6 +91,8 @@ export function Canvas({
   onSelectElement: (element: SelectedElement) => void;
   clearSelectionKey: number;
   overlay?: ReactNode;
+  /** Hand: drag anywhere (screens included) pans; screens do not receive clicks. */
+  tool?: 'move' | 'hand';
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; camera: Camera } | null>(null);
@@ -133,6 +136,7 @@ export function Canvas({
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (
+      tool !== 'hand' &&
       event.target !== event.currentTarget &&
       !(event.target as HTMLElement).dataset['canvasBackground']
     )
@@ -160,7 +164,7 @@ export function Canvas({
       ref={viewport}
       role="application"
       aria-label="Design canvas. Scroll to pan, Control or Command plus scroll to zoom."
-      className={`relative h-full w-full overflow-hidden bg-canvas ${panning ? 'cursor-grabbing' : 'cursor-default'}`}
+      className={`relative h-full w-full overflow-hidden bg-canvas ${panning ? 'cursor-grabbing' : tool === 'hand' ? 'cursor-grab' : 'cursor-default'}`}
       onWheel={onWheel}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -189,8 +193,12 @@ export function Canvas({
                 onClick={() => {
                   onSelectScreen(screen.filePath);
                 }}
-                className={`mb-3 flex max-w-full items-baseline gap-3 truncate rounded px-1 text-left focus-visible:outline-2 focus-visible:outline-accent ${selected ? 'text-accent' : 'text-text-muted'}`}
-                style={{ fontSize: Math.max(14, 14 / camera.zoom) }}
+                className={`mb-3 flex max-w-full items-center gap-3 truncate rounded px-1 text-left focus-visible:outline-2 focus-visible:outline-accent ${selected ? 'text-accent' : 'text-text-muted'}`}
+                // Readable and at least 24px tall on screen at any zoom (WCAG 2.2 target size).
+                style={{
+                  fontSize: Math.max(14, 14 / camera.zoom),
+                  minHeight: Math.max(24, 24 / camera.zoom),
+                }}
               >
                 <span className="font-semibold">{String(index + 1).padStart(2, '0')}</span>
                 <span className="truncate font-medium text-text">{screen.name}</span>
@@ -198,7 +206,11 @@ export function Canvas({
               </button>
               <div
                 className={`relative overflow-hidden bg-white shadow-xl ring-1 ${selected ? 'ring-accent ring-4' : 'ring-black/10'}`}
-                style={{ width, height, pointerEvents: panning ? 'none' : 'auto' }}
+                style={{
+                  width,
+                  height,
+                  pointerEvents: panning || tool === 'hand' ? 'none' : 'auto',
+                }}
                 onPointerDown={() => {
                   onSelectScreen(screen.filePath);
                 }}

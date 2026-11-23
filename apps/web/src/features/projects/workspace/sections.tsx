@@ -125,7 +125,7 @@ export function SettingsSection({
                           {
                             onSuccess: () => {
                               setConfirmArchive(false);
-                              void navigate('/projects');
+                              void navigate('/files');
                             },
                           },
                         );

@@ -7,7 +7,7 @@ import { AgentsPage } from '../features/settings/agents-page';
 import { DesignSystemsPage } from '../features/settings/design-systems-page';
 import { MetricsPage } from '../features/metrics/metrics-page';
 import { SettingsLayout } from '../features/settings/settings-layout';
-import { StudioRoute } from '../features/studio/studio-page';
+import { LegacyFileRedirect, StudioRoute } from '../features/studio/studio-page';
 import { AppShell } from './app-shell';
 import { NotFoundPage } from './not-found-page';
 import { RouteError } from './route-error';
@@ -15,10 +15,11 @@ import { RouteError } from './route-error';
 export const router = createBrowserRouter([
   // The design studio is full-screen and has its own toolbar and panels.
   {
-    path: 'projects/:projectId',
+    path: 'file/:projectId',
     element: <StudioRoute />,
     errorElement: <RouteError />,
   },
+  { path: 'projects/:projectId', element: <LegacyFileRedirect /> },
   {
     element: <AppShell />,
     errorElement: <RouteError />,

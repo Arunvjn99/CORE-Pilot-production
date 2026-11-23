@@ -4,8 +4,8 @@ export function NotFoundPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">Page not found</h1>
-      <Link to="/projects" className="underline">
-        Back to projects
+      <Link to="/files" className="underline">
+        Back to files
       </Link>
     </div>
   );

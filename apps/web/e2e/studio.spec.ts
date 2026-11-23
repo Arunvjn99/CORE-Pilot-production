@@ -106,7 +106,7 @@ test('designer prompts the agents, edits a screen and plays the prototype', asyn
   const create = page.getByRole('dialog', { name: 'New design file' });
   await create.getByLabel('File name').fill(projectName);
   await create.getByRole('button', { name: 'Create file' }).click();
-  await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/file\/[0-9a-f-]{36}$/);
   await expect(page.getByRole('heading', { name: projectName, level: 1 })).toBeVisible();
   await expectAccessible(page);
 

@@ -9,8 +9,8 @@ export function RouteError() {
         <p className="text-sm text-text-muted">
           Please reload the page. If this keeps happening, contact support.
         </p>
-        <Link to="/projects" className="underline">
-          Back to projects
+        <Link to="/files" className="underline">
+          Back to files
         </Link>
       </div>
     </main>
