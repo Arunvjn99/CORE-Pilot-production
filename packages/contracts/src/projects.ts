@@ -18,16 +18,30 @@ export const projectSchema = z.object({
   createdAt: z.iso.datetime({ offset: true }),
   updatedAt: z.iso.datetime({ offset: true }),
   lastOpenedAt: z.iso.datetime({ offset: true }).nullable(),
+  /** UI "Project" (folder) the file is in; null = Drafts (ADR-0014). */
+  folderId: z.uuid().nullable(),
+  folderName: z.string().nullable(),
+  designSystemSlug: z.string().nullable(),
 });
+/** In the UI this is a **file** (ADR-0014); the API keeps the name "project". */
 export type Project = z.infer<typeof projectSchema>;
+
+export const projectSortSchema = z.enum(['updated', 'opened', 'name', 'created']);
+export type ProjectSort = z.infer<typeof projectSortSchema>;
 
 export const projectListQuerySchema = z.object({
   status: projectStatusSchema.default('active'),
+  /** `drafts` = files in no project; a folder id = that project's files; omitted = all. */
+  folder: z.union([z.literal('drafts'), z.uuid()]).optional(),
+  q: z.string().trim().max(80).optional(),
+  sort: projectSortSchema.default('updated'),
 });
+export type ProjectListQuery = z.infer<typeof projectListQuerySchema>;
 
 export const createProjectSchema = z.object({
   name,
   description: description.default(''),
+  folderId: z.uuid().nullable().default(null),
 });
 export type CreateProject = z.infer<typeof createProjectSchema>;
 
@@ -36,11 +50,18 @@ export const updateProjectSchema = z
     name: name.optional(),
     description: description.optional(),
     status: projectStatusSchema.optional(),
+    /** Move to a project (folder) or to Drafts (null). */
+    folderId: z.uuid().nullable().optional(),
     expectedUpdatedAt,
   })
-  .refine((v) => v.name !== undefined || v.description !== undefined || v.status !== undefined, {
-    message: 'Nothing to update',
-  });
+  .refine(
+    (v) =>
+      v.name !== undefined ||
+      v.description !== undefined ||
+      v.status !== undefined ||
+      v.folderId !== undefined,
+    { message: 'Nothing to update' },
+  );
 export type UpdateProject = z.infer<typeof updateProjectSchema>;
 
 /**
@@ -125,6 +146,25 @@ export const restoreCheckpointSchema = z.object({
   /** Save uncommitted work as a checkpoint before restoring (default). */
   safetyCheckpoint: z.boolean().default(true),
 });
+/** Duplicate a file (repository and history copied). Default name: "<name> (copy)". */
+export const duplicateProjectSchema = z.object({ name: name.optional() });
+
+// ---------- folders (UI: "Projects") ----------
+
+export const folderSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  /** Active files in this project. */
+  fileCount: z.number().int().min(0),
+  createdAt: z.iso.datetime({ offset: true }),
+  updatedAt: z.iso.datetime({ offset: true }),
+});
+export type Folder = z.infer<typeof folderSchema>;
+export const createFolderSchema = z.object({ name });
+export const updateFolderSchema = z.object({ name });
+/** Deleting a project moves its active files to Trash. */
+export const deleteFolderResultSchema = z.object({ trashedFiles: z.number().int().min(0) });
+
 /** Export as a runnable Vite project: the current work (default) or a checkpoint. */
 export const exportProjectQuerySchema = z.object({
   checkpointId: z.uuid().optional(),

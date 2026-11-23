@@ -25,6 +25,9 @@ const project: Project = {
   createdAt: now,
   updatedAt: now,
   lastOpenedAt: now,
+  folderId: null,
+  folderName: null,
+  designSystemSlug: 'core-2',
 };
 const page = (id: string, name: string, route: string, position: number): ProjectPage => ({
   id,
@@ -153,7 +156,7 @@ describe('ProjectDashboard', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(`/projects/${PROJECT_ID}`);
     });
-    expect(body).toEqual({ name: 'Checkout', description: '' });
+    expect(body).toEqual({ name: 'Checkout', description: '', folderId: null });
   });
 
   it('archives from the card menu with the concurrency token', async () => {

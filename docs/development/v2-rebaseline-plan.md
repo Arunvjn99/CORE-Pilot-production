@@ -81,6 +81,8 @@ Every step, prompt, tool call, token count and score is traced to **LangSmith** 
 
 ## 5. Product screens
 
+> **Updated 2026-11-17:** the app follows Figma's structure (Team → Projects → Files → Screens) with a file browser and a UI3-style editor. Layout, flow and CRUD: [figma-style-app-plan.md](figma-style-app-plan.md) (ADR-0014). The sketch below remains the editor's intent.
+
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────────────┐
 │ Toolbar: project ▾ · page ▾ · Design | Prototype | Code · zoom · ▶ Play · Share · Export │
@@ -149,6 +151,8 @@ Each slice ends tested, demoable and committable.
 | **V8**   | Metrics dashboard                  | §7                                                                                                                                                                        | M    |
 | **V9**   | Comments, versions, export         | Comment pins + annotate, version history on checkpoints, export HTML/PDF/PNG/PPTX/ZIP/React project                                                                       | M    |
 | Pipeline | Later                              | User roles and permissions UI, Figma plugin import/export (POC has one), real-time co-editing, Azure deployment and hardening                                             | —    |
+
+**Update 2026-11-17:** slices F1–F4 (projects and files, file browser, editor shell, layers) come before V6 — see [figma-style-app-plan.md](figma-style-app-plan.md) §6.
 
 **Order:**
 

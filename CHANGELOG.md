@@ -2,6 +2,13 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-23 · Figma-style app plan; F1 projects and files API
+
+- **Plan:** [`docs/development/figma-style-app-plan.md`](docs/development/figma-style-app-plan.md) — Team → Projects → Files → Screens, file browser and UI3-style editor layouts, flows and CRUD; slices F1–F4 before V6. **ADR-0014:** UI "Projects" are folders (`folders` table); UI "files" keep the `projects` table and API.
+- **API (F1):** `GET/POST/PATCH/DELETE /folders` (file counts; names unique per team; delete moves its files to Trash). Files gain `folderId`/`folderName`/`designSystemSlug`; list filters `folder` (id or `drafts`), `q` (case-insensitive, `%`/`_` literal), `sort` (updated, opened, name, created); create in a project; move via `PATCH {folderId}`; `POST /projects/:id/duplicate` copies the repository with history, new screen ids and a unique "(copy)" name. Migration 0010 adds a same-team composite foreign key so a file can never reference another team's folder, even below the API.
+- **Fix found by the tests:** folder file counts were always 0 (unqualified column in a correlated subquery).
+- Tests: 9 new integration tests (total **156/156**, fresh database and re-run).
+
 ### 2026-11-17 · V9a — version history and export as a React project
 
 - **Export:** `GET /projects/:id/export[?checkpointId=]` downloads the project as a runnable Vite + React + Tailwind app (ZIP): the current work including unsaved canvas edits (snapshotted in a throw-away git index, so the repository's index and HEAD are untouched), or any checkpoint. Viewers may export; audited as `project.exported`. Verified: the downloaded ZIP installs and builds (`tsc` + `vite build`).

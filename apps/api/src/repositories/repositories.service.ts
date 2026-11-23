@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   ConflictException,
@@ -527,6 +527,75 @@ export class RepositoriesService {
       'restore',
       target.id,
     );
+  }
+
+  /**
+   * Creates `targetId`'s repository as a copy of `sourceId`'s (working tree and history), gives
+   * the pages new ids, copies the checkpoint list and records a "Duplicate of" checkpoint.
+   */
+  async duplicate(
+    tx: Database,
+    actor: RepoActor,
+    sourceId: string,
+    targetId: string,
+    message: string,
+  ): Promise<void> {
+    await this.ensureReady(tx, actor, sourceId);
+    const source = this.open(actor.organizationId, sourceId);
+    const target = this.open(actor.organizationId, targetId);
+    const sourceState = await this.state(tx, sourceId);
+    try {
+      await rm(target.dir, { recursive: true, force: true });
+      await mkdir(target.dir, { recursive: true });
+      // Symlinks never exist in repositories (path policy); copy them as-is if one ever did.
+      await cp(source.root, target.root, { recursive: true, verbatimSymlinks: true });
+      const manifest = parseManifest(await target.fs.readText(MANIFEST_PATH));
+      const renamed = {
+        ...manifest,
+        pages: manifest.pages.map((p) => ({ ...p, id: randomUUID() })),
+      };
+      await this.writeManifest(target.fs, renamed);
+      await writeFile(target.marker, '1\n');
+      const values = {
+        organizationId: actor.organizationId,
+        status: 'ready' as const,
+        templateVersion: sourceState?.templateVersion ?? TEMPLATE_VERSION,
+        headCommit: await target.git.head(),
+        workingRevision: 1,
+        lastErrorCode: null,
+        updatedAt: sql`now()`,
+      };
+      await tx
+        .insert(projectRepositories)
+        .values({ projectId: targetId, ...values })
+        .onConflictDoUpdate({ target: projectRepositories.projectId, set: values });
+      await this.syncPages(tx, actor.organizationId, targetId, renamed);
+      const history = await tx
+        .select()
+        .from(projectCheckpoints)
+        .where(eq(projectCheckpoints.projectId, sourceId))
+        .orderBy(projectCheckpoints.createdAt);
+      for (const c of history)
+        await tx.insert(projectCheckpoints).values({
+          projectId: targetId,
+          organizationId: actor.organizationId,
+          commitSha: c.commitSha,
+          message: c.message,
+          kind: c.kind,
+          revision: c.revision,
+          restoredFrom: null,
+          authorId: c.authorId,
+          createdAt: c.createdAt,
+        });
+    } catch (error) {
+      this.logger.error({ err: error, sourceId, targetId }, 'Repository duplication failed');
+      await rm(target.dir, { recursive: true, force: true }).catch(() => undefined);
+      throw new ServiceUnavailableException({
+        code: 'REPOSITORY_UNAVAILABLE',
+        message: 'The file could not be duplicated. Try again.',
+      });
+    }
+    await this.checkpoint(tx, actor, targetId, message, 'create');
   }
 
   /**

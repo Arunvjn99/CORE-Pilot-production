@@ -350,6 +350,27 @@ export const organizationLlmDefaults = pgTable(
 export const projectStatus = pgEnum('project_status', ['active', 'archived']);
 
 /** A React app owned by a team. Metadata lives here; the repo store arrives in a later slice (D6). */
+/**
+ * What the UI calls a "Project": a folder of files in a team (ADR-0014). Files are `projects` rows.
+ */
+export const folders = pgTable(
+  'folders',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('folders_org_name_idx').on(t.organizationId, sql`lower(${t.name})`),
+    tenantIsolation('folders'),
+  ],
+).enableRLS();
+
 export const projects = pgTable(
   'projects',
   {
@@ -366,8 +387,11 @@ export const projects = pgTable(
     lastOpenedAt: timestamp('last_opened_at', { withTimezone: true }),
     /** Design system the project's DESIGN.md was created from (the repo copy is the source). */
     designSystemSlug: text('design_system_slug'),
+    /** The UI "Project" this file belongs to; null = Drafts (ADR-0014). */
+    folderId: uuid('folder_id').references(() => folders.id, { onDelete: 'set null' }),
   },
   (t) => [
+    index('projects_org_folder_idx').on(t.organizationId, t.folderId),
     index('projects_org_status_idx').on(t.organizationId, t.status, t.updatedAt),
     // Names are unique per team among active projects (case-insensitive).
     uniqueIndex('projects_org_active_name_idx')

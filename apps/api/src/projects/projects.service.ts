@@ -12,11 +12,12 @@ import type {
   CreateProject,
   Project,
   ProjectPage,
+  ProjectListQuery,
   ProjectStatus,
   UpdatePage,
   UpdateProject,
 } from '@core-studio/contracts';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, isNull, type SQL, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { pageFilePath } from '@core-studio/project-template';
 import { AuditService } from '../audit/audit.service.js';
@@ -24,7 +25,7 @@ import { type RepoActor, RepositoriesService } from '../repositories/repositorie
 import type { AuthContext } from '../auth/auth-context.js';
 import { DATABASE } from '../db/database.module.js';
 import { type Database, withDbContext } from '../db/database.js';
-import { projectPages, projects, users } from '../db/schema.js';
+import { folders, projectPages, projects, users } from '../db/schema.js';
 
 const UNIQUE_VIOLATION = '23505';
 
@@ -50,6 +51,9 @@ const projectColumns = {
   createdAt: projects.createdAt,
   updatedAt: projects.updatedAt,
   lastOpenedAt: projects.lastOpenedAt,
+  folderId: projects.folderId,
+  folderName: folders.name,
+  designSystemSlug: projects.designSystemSlug,
   createdByName: users.displayName,
   pageCount: sql<number>`(select count(*)::int from ${projectPages} p where p.project_id = ${projects.id})`,
 };
@@ -59,7 +63,7 @@ type ProjectRow = {
     ? Date
     : K extends 'lastOpenedAt'
       ? Date | null
-      : K extends 'createdByName'
+      : K extends 'createdByName' | 'folderId' | 'folderName' | 'designSystemSlug'
         ? string | null
         : K extends 'pageCount'
           ? number
@@ -114,6 +118,7 @@ export class ProjectsService {
       .select(projectColumns)
       .from(projects)
       .leftJoin(users, eq(users.id, projects.createdBy))
+      .leftJoin(folders, eq(folders.id, projects.folderId))
       .where(eq(projects.id, id));
     if (!row) throw new NotFoundException('Project not found');
     return toProject(row);
@@ -138,16 +143,40 @@ export class ProjectsService {
       .where(eq(projects.id, id));
   }
 
-  list(auth: AuthContext, status: ProjectStatus): Promise<Project[]> {
+  /** Files of the team: by status, project (folder) or Drafts, name search and sort. */
+  list(auth: AuthContext, query: ProjectListQuery): Promise<Project[]> {
     return this.run(auth, async (tx) => {
+      const filters: SQL[] = [eq(projects.status, query.status)];
+      if (query.folder === 'drafts') filters.push(isNull(projects.folderId));
+      else if (query.folder) filters.push(eq(projects.folderId, query.folder));
+      if (query.q) filters.push(ilike(projects.name, `%${query.q.replace(/[\\%_]/g, '\\$&')}%`));
+      const order = {
+        updated: [desc(projects.updatedAt)],
+        opened: [sql`${projects.lastOpenedAt} desc nulls last`, desc(projects.updatedAt)],
+        name: [asc(sql`lower(${projects.name})`)],
+        created: [desc(projects.createdAt)],
+      }[query.sort];
       const rows = await tx
         .select(projectColumns)
         .from(projects)
         .leftJoin(users, eq(users.id, projects.createdBy))
-        .where(eq(projects.status, status))
-        .orderBy(desc(projects.updatedAt));
+        .leftJoin(folders, eq(folders.id, projects.folderId))
+        .where(and(...filters))
+        .orderBy(...order, desc(projects.id))
+        .limit(500);
       return rows.map(toProject);
     });
+  }
+
+  /** A folder id from the client must name a project of the caller's team (RLS-scoped read). */
+  private async assertFolder(tx: Database, folderId: string | null) {
+    if (!folderId) return;
+    const [row] = await tx.select({ id: folders.id }).from(folders).where(eq(folders.id, folderId));
+    if (!row)
+      throw new NotFoundException({
+        code: 'FOLDER_NOT_FOUND',
+        message: 'This project no longer exists.',
+      });
   }
 
   get(auth: AuthContext, id: string): Promise<Project> {
@@ -170,10 +199,12 @@ export class ProjectsService {
   async create(auth: AuthContext, input: CreateProject, correlationId: string): Promise<Project> {
     try {
       return await this.run(auth, async (tx, organizationId) => {
+        await this.assertFolder(tx, input.folderId);
         const [row] = await tx
           .insert(projects)
           .values({
             organizationId,
+            folderId: input.folderId,
             name: input.name,
             description: input.description,
             createdBy: auth.userId,
@@ -192,7 +223,7 @@ export class ProjectsService {
           targetType: 'project',
           targetId: row.id,
           correlationId,
-          metadata: { name: input.name },
+          metadata: { name: input.name, folderId: input.folderId },
         });
         return this.loadProject(tx, row.id);
       });
@@ -219,7 +250,11 @@ export class ProjectsService {
         if (!current) throw new NotFoundException('Project not found');
         if (current.updatedAt.toISOString() !== new Date(input.expectedUpdatedAt).toISOString())
           throw stale();
-        const renaming = input.name !== undefined || input.description !== undefined;
+        const renaming =
+          input.name !== undefined ||
+          input.description !== undefined ||
+          input.folderId !== undefined;
+        if (input.folderId !== undefined) await this.assertFolder(tx, input.folderId);
         if (current.status === 'archived' && renaming && input.status !== 'active')
           throw conflict('PROJECT_ARCHIVED', 'Restore the project before editing it.');
         await tx
@@ -228,6 +263,7 @@ export class ProjectsService {
             ...(input.name !== undefined ? { name: input.name } : {}),
             ...(input.description !== undefined ? { description: input.description } : {}),
             ...(input.status !== undefined ? { status: input.status } : {}),
+            ...(input.folderId !== undefined ? { folderId: input.folderId } : {}),
             updatedAt: sql`now()`,
           })
           .where(eq(projects.id, id));
@@ -236,7 +272,9 @@ export class ProjectsService {
             ? input.status === 'archived'
               ? 'project.archived'
               : 'project.restored'
-            : 'project.updated';
+            : input.folderId !== undefined && input.name === undefined
+              ? 'project.moved'
+              : 'project.updated';
         await this.audit.record(tx, {
           organizationId,
           actorId: auth.userId,
@@ -247,9 +285,80 @@ export class ProjectsService {
           metadata: {
             ...(input.name !== undefined ? { name: input.name } : {}),
             ...(input.description !== undefined ? { descriptionChanged: true } : {}),
+            ...(input.folderId !== undefined ? { folderId: input.folderId } : {}),
           },
         });
         return this.loadProject(tx, id);
+      });
+    } catch (error) {
+      if (uniqueViolation(error) !== null)
+        throw conflict('NAME_TAKEN', 'A project with this name already exists in this team.');
+      throw error;
+    }
+  }
+
+  /**
+   * Copies a file: same project, description and design system; the repository is copied with its
+   * history and checkpoints; screens get new ids. Name defaults to "<name> (copy)", made unique.
+   */
+  async duplicate(
+    auth: AuthContext,
+    id: string,
+    name: string | undefined,
+    correlationId: string,
+  ): Promise<Project> {
+    try {
+      return await this.run(auth, async (tx, organizationId) => {
+        await this.lockActiveProject(tx, id);
+        const [full] = await tx.select().from(projects).where(eq(projects.id, id));
+        if (!full) throw new NotFoundException('Project not found');
+        const taken = new Set(
+          (
+            await tx
+              .select({ name: sql<string>`lower(${projects.name})` })
+              .from(projects)
+              .where(eq(projects.status, 'active'))
+          ).map((r) => r.name),
+        );
+        let finalName = name ?? '';
+        if (!finalName)
+          for (let n = 1; ; n += 1) {
+            const suffix = n === 1 ? ' (copy)' : ` (copy ${String(n)})`;
+            finalName = `${full.name.slice(0, 80 - suffix.length)}${suffix}`;
+            if (!taken.has(finalName.toLowerCase())) break;
+          }
+        const [row] = await tx
+          .insert(projects)
+          .values({
+            organizationId,
+            folderId: full.folderId,
+            name: finalName,
+            description: full.description,
+            designSystemSlug: full.designSystemSlug,
+            createdBy: auth.userId,
+            lastOpenedAt: sql`now()`,
+          })
+          .returning({ id: projects.id });
+        if (!row) throw new Error('Insert returned no row');
+        await this.repositories.lock(tx, id);
+        await this.repositories.lock(tx, row.id);
+        await this.repositories.duplicate(
+          tx,
+          this.actor(auth, organizationId),
+          id,
+          row.id,
+          `Duplicate of "${full.name.slice(0, 120)}"`,
+        );
+        await this.audit.record(tx, {
+          organizationId,
+          actorId: auth.userId,
+          action: 'project.duplicated',
+          targetType: 'project',
+          targetId: row.id,
+          correlationId,
+          metadata: { sourceId: id, name: finalName },
+        });
+        return this.loadProject(tx, row.id);
       });
     } catch (error) {
       if (uniqueViolation(error) !== null)

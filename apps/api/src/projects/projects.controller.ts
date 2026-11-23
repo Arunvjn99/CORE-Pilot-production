@@ -21,6 +21,7 @@ import {
   createPageSchema,
   restoreCheckpointSchema,
   createProjectSchema,
+  duplicateProjectSchema,
   exportProjectQuerySchema,
   projectListQuerySchema,
   updatePageSchema,
@@ -50,7 +51,7 @@ export class ProjectsController {
     @Auth() auth: AuthContext,
     @Query(new ZodPipe(projectListQuerySchema)) query: z.infer<typeof projectListQuerySchema>,
   ) {
-    return this.projects.list(auth, query.status);
+    return this.projects.list(auth, query);
   }
 
   @Post()
@@ -86,6 +87,17 @@ export class ProjectsController {
     @Body(new ZodPipe(updateProjectSchema)) body: z.infer<typeof updateProjectSchema>,
   ) {
     return this.projects.update(auth, id, body, correlationIdOf(req));
+  }
+
+  @Post(':id/duplicate')
+  @RequirePermission('projects:write')
+  duplicate(
+    @Auth() auth: AuthContext,
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(duplicateProjectSchema)) body: z.infer<typeof duplicateProjectSchema>,
+  ) {
+    return this.projects.duplicate(auth, id, body.name, correlationIdOf(req));
   }
 
   @Get(':id/pages')

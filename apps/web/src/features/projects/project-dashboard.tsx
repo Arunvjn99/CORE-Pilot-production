@@ -87,12 +87,15 @@ function Dashboard({ session, teamId }: { session: SessionResponse; teamId: stri
         pending={mutations.create.isPending}
         error={mutations.create.error}
         onSubmit={(values) => {
-          mutations.create.mutate(values, {
-            onSuccess: (project) => {
-              setCreateOpen(false);
-              void navigate(workspacePath(project.id));
+          mutations.create.mutate(
+            { ...values, folderId: null },
+            {
+              onSuccess: (project) => {
+                setCreateOpen(false);
+                void navigate(workspacePath(project.id));
+              },
             },
-          });
+          );
         }}
       />
     </FormDialog>

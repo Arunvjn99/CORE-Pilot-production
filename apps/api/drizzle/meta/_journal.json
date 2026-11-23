@@ -71,6 +71,13 @@
       "when": 1794899117178,
       "tag": "0009_studio_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794906191856,
+      "tag": "0010_files_and_folders",
+      "breakpoints": true
     }
   ]
 }
