@@ -1,4 +1,9 @@
-import type { Screen, SelectedElement, SourceEdit } from '@core-studio/contracts';
+import {
+  MAX_PROTOTYPE_DELAY_MS,
+  type Screen,
+  type SelectedElement,
+  type SourceEdit,
+} from '@core-studio/contracts';
 import { Play, Workflow } from 'lucide-react';
 import { Tabs } from 'radix-ui';
 import { type ReactNode, useId, useState } from 'react';
@@ -377,22 +382,73 @@ function PrototypeLink({
   onEdit: (op: SourceEdit['op']) => void;
   pending: boolean;
 }) {
-  const current = element.attributes['data-link'] ?? '';
+  const attr = element.attributes;
+  const link = attr['data-link'] ?? '';
+  const trigger = attr['data-trigger'] ?? 'click';
+  const [delay, setDelay] = useState(attr['data-delay'] ?? '800');
+  const set = (
+    name: Extract<SourceEdit['op'], { type: 'setAttribute' }>['name'],
+    value: string | null,
+  ) => {
+    onEdit({ type: 'setAttribute', name, value });
+  };
   return (
     <Section title="Interaction">
-      <Field label="On click">
+      <Field label="Trigger">
         {(id) => (
           <select
             id={id}
             className={control}
-            value={current}
+            value={trigger}
             disabled={pending}
             onChange={(event) => {
-              onEdit({
-                type: 'setAttribute',
-                name: 'data-link',
-                value: event.target.value || null,
-              });
+              const next = event.target.value;
+              set('data-trigger', next === 'click' ? null : next);
+              if (next === 'delay' && !attr['data-delay']) set('data-delay', delay);
+            }}
+          >
+            <option value="click">On click</option>
+            <option value="hover">On hover</option>
+            <option value="delay">After delay</option>
+          </select>
+        )}
+      </Field>
+      {trigger === 'delay' && (
+        <Field label="Delay (ms)">
+          {(id) => (
+            <input
+              id={id}
+              type="number"
+              min={0}
+              max={MAX_PROTOTYPE_DELAY_MS}
+              step={100}
+              className={control}
+              value={delay}
+              disabled={pending}
+              onChange={(event) => {
+                setDelay(event.target.value);
+              }}
+              onBlur={() => {
+                const ms = Math.min(
+                  MAX_PROTOTYPE_DELAY_MS,
+                  Math.max(0, Math.round(Number(delay) || 0)),
+                );
+                setDelay(String(ms));
+                if (String(ms) !== attr['data-delay']) set('data-delay', String(ms));
+              }}
+            />
+          )}
+        </Field>
+      )}
+      <Field label="Action">
+        {(id) => (
+          <select
+            id={id}
+            className={control}
+            value={link}
+            disabled={pending}
+            onChange={(event) => {
+              set('data-link', event.target.value || null);
             }}
           >
             <option value="">No action</option>
@@ -401,9 +457,31 @@ function PrototypeLink({
                 Navigate to {s.name}
               </option>
             ))}
+            <option value="back">Back</option>
           </select>
         )}
       </Field>
+      {link && (
+        <Field label="Transition">
+          {(id) => (
+            <select
+              id={id}
+              className={control}
+              value={attr['data-transition'] ?? 'instant'}
+              disabled={pending}
+              onChange={(event) => {
+                set(
+                  'data-transition',
+                  event.target.value === 'instant' ? null : event.target.value,
+                );
+              }}
+            >
+              <option value="instant">Instant</option>
+              <option value="dissolve">Dissolve</option>
+            </select>
+          )}
+        </Field>
+      )}
     </Section>
   );
 }

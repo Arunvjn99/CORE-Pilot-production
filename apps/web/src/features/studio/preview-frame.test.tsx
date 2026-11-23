@@ -221,7 +221,7 @@ describe('PreviewFrame', () => {
   it('forwards navigate, error and rendered messages', () => {
     const { win, onNavigate, onError } = renderFrame();
     dispatch({ type: 'navigate', route: '/checkout' }, ORIGIN, win);
-    expect(onNavigate).toHaveBeenCalledWith('/checkout');
+    expect(onNavigate).toHaveBeenCalledWith('/checkout', 'instant');
     dispatch({ type: 'error', message: 'ReferenceError: x is not defined' }, ORIGIN, win);
     expect(onError).toHaveBeenLastCalledWith('ReferenceError: x is not defined');
     dispatch({ type: 'rendered', path: PATH }, ORIGIN, win);

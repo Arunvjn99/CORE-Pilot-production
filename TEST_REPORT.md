@@ -115,3 +115,16 @@ Defect found by E2E and fixed: the History panel hid Restore on the latest check
 | E2E                                         | 16/17 — rewritten projects spec for the Figma flow; the remaining failure is the sandbox-blocked OpenAI call                                                                                                                              |
 
 Defect found by tests and fixed: folder file counts were always 0 (unqualified column in a correlated subquery).
+
+### F3–F4, V6, V7, V9b and the new backend (2026-11-23)
+
+| Suite                                                                             | Result                                                                                                                                                                                  |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lint, typecheck, unit (`turbo`)                                                   | 21/21                                                                                                                                                                                   |
+| API unit                                                                          | 74/74                                                                                                                                                                                   |
+| API integration (fresh database and re-run earlier in the day; full run after V7) | **174/174** (18 new: comments, delete forever, screen source writes; V7 attribute validation)                                                                                           |
+| Web unit                                                                          | **134/134**                                                                                                                                                                             |
+| Preview unit                                                                      | 4/4                                                                                                                                                                                     |
+| E2E on the Compose stack                                                          | 16/17 — the studio journey now covers the UI3 editor, undo/redo, comments, layers, assets and a hover trigger in Present mode; the remaining failure is the sandbox-blocked OpenAI call |
+
+Defects found and fixed: Space released on a focused toolbar button re-activated it; canvas labels were below the 24 px touch target when zoomed out; the layer tree and the selection re-sync ran before React committed the new DOM (now on DOM settle); stale "before" code for quick successive edits (cache now updated from each write); an `onEdited` wiring miss that left Undo disabled (caught by E2E).

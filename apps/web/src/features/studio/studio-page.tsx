@@ -106,6 +106,14 @@ function Studio({
   const [selection, setSelection] = useState<SelectedElement | null>(null);
   const [clearKey, setClearKey] = useState(0);
   const [playing, setPlaying] = useState<string | null>(null);
+  /** Screens visited in Present mode, for "back"; and the transition into the current one. */
+  const [playHistory, setPlayHistory] = useState<string[]>([]);
+  const [playTransition, setPlayTransition] = useState<{ kind: 'instant' | 'dissolve'; n: number }>(
+    {
+      kind: 'instant',
+      n: 0,
+    },
+  );
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leftTab, setLeftTab] = useState('ai');
   const [panels, setPanels] = useState(true);
@@ -607,7 +615,10 @@ function Studio({
       <Dialog.Root
         open={playing !== null}
         onOpenChange={(o) => {
-          if (!o) setPlaying(null);
+          if (!o) {
+            setPlaying(null);
+            setPlayHistory([]);
+          }
         }}
       >
         <Dialog.Portal>
@@ -627,7 +638,11 @@ function Studio({
             </div>
             <div className="flex flex-1 items-start justify-center overflow-auto bg-canvas p-6">
               {playScreen && (
-                <div className="shadow-xl" style={{ width: Math.min(DEVICES[device].width, 1440) }}>
+                <div
+                  key={playTransition.n}
+                  className={`shadow-xl ${playTransition.kind === 'dissolve' ? 'core-dissolve' : ''}`}
+                  style={{ width: Math.min(DEVICES[device].width, 1440) }}
+                >
                   <PreviewFrame
                     previewOrigin={previewOrigin}
                     path={playScreen.filePath}
@@ -637,8 +652,18 @@ function Studio({
                     title={`Prototype: ${playScreen.name}`}
                     width={DEVICES[device].width}
                     height={DEVICES[device].height}
-                    onNavigate={(route) => {
-                      if (screenList.some((s) => s.route === route)) setPlaying(route);
+                    onNavigate={(route, transition) => {
+                      let next: string | null = null;
+                      if (route === 'back') {
+                        next = playHistory.at(-1) ?? null;
+                        setPlayHistory((h) => h.slice(0, -1));
+                      } else if (screenList.some((s) => s.route === route)) {
+                        next = route;
+                        if (playing) setPlayHistory((h) => [...h, playing].slice(-50));
+                      }
+                      if (!next) return;
+                      setPlaying(next);
+                      setPlayTransition((t) => ({ kind: transition, n: t.n + 1 }));
                     }}
                   />
                 </div>

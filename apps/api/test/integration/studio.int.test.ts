@@ -788,6 +788,23 @@ describe('canvas source edits', () => {
       ).body,
     );
     expect(res.code).toContain('aria-label="Continue to sign in"');
+    for (const [name, value] of [
+      ['data-trigger', 'hover'],
+      ['data-transition', 'dissolve'],
+      ['data-link', 'back'],
+    ] as const) {
+      res = sourceEditResultSchema.parse(
+        (
+          await edit(designer, {
+            path: screen.filePath,
+            ...button,
+            baseRevision: res.revision,
+            op: { type: 'setAttribute', name, value },
+          }).expect(200)
+        ).body,
+      );
+      expect(res.code).toContain(`${name}="${value}"`);
+    }
     ({ revision, screen } = await dashboard());
     expect(revision).toBe(res.revision);
     expect(screen.code).toBe(res.code);
@@ -833,6 +850,19 @@ describe('canvas source edits', () => {
       baseRevision: revision,
       op: { type: 'setAttribute', name: 'onClick', value: 'alert(1)' },
     }).expect(400);
+    // Prototype attributes (V7): only known triggers, bounded delays, routes or "back".
+    for (const [name, value] of [
+      ['data-link', 'javascript:alert(1)'],
+      ['data-trigger', 'scroll'],
+      ['data-delay', '30001'],
+      ['data-transition', 'slide'],
+    ] as const)
+      await edit(designer, {
+        path: screen.filePath,
+        ...h1,
+        baseRevision: revision,
+        op: { type: 'setAttribute', name, value },
+      }).expect(400);
     // Text with JSX-significant characters is stored as a string literal, never as markup.
     const literal = sourceEditResultSchema.parse(
       (

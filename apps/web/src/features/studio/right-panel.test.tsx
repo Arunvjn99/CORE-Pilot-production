@@ -284,7 +284,7 @@ describe('RightPanel design tab', () => {
     expect(screen.getByLabelText('Padding')).toBeDisabled();
     expect(screen.getByLabelText('All classes')).toBeDisabled();
     await userEvent.click(screen.getByRole('tab', { name: 'Prototype' }));
-    expect(await screen.findByLabelText('On click')).toBeDisabled();
+    expect(await screen.findByLabelText('Action')).toBeDisabled();
     expect(editsSent(fetchMock)).toEqual([]);
   });
 });
@@ -294,7 +294,7 @@ describe('RightPanel prototype tab', () => {
     const fetchMock = stubApi();
     renderPanel({ selection: { ...selection, attributes: { 'data-link': '/checkout' } } });
     await userEvent.click(screen.getByRole('tab', { name: 'Prototype' }));
-    const onClick = await screen.findByLabelText('On click');
+    const onClick = await screen.findByLabelText('Action');
     expect(onClick).toHaveValue('/checkout');
     expect(screen.getByText(/Home → Checkout/)).toBeInTheDocument();
 
@@ -310,7 +310,7 @@ describe('RightPanel prototype tab', () => {
     const fetchMock = stubApi();
     renderPanel();
     await userEvent.click(screen.getByRole('tab', { name: 'Prototype' }));
-    await userEvent.selectOptions(await screen.findByLabelText('On click'), 'Navigate to Checkout');
+    await userEvent.selectOptions(await screen.findByLabelText('Action'), 'Navigate to Checkout');
     await waitFor(() => {
       expect(editsSent(fetchMock)).toEqual([
         {
@@ -334,5 +334,68 @@ describe('RightPanel verify tab', () => {
       await screen.findByText('The provider is rate limiting the key. Try again shortly.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Not traced')).toBeInTheDocument();
+  });
+});
+
+describe('RightPanel prototype interactions (V7)', () => {
+  it('sets trigger, delay, back action and transition as validated attributes', async () => {
+    const fetchMock = stubApi();
+    renderPanel({
+      selection: {
+        ...selection,
+        attributes: { ...selection.attributes, 'data-link': '/checkout' },
+      },
+    });
+    await userEvent.click(screen.getByRole('tab', { name: 'Prototype' }));
+    await userEvent.selectOptions(await screen.findByLabelText('Trigger'), 'After delay');
+    await userEvent.selectOptions(screen.getByLabelText('Action'), 'Back');
+    await userEvent.selectOptions(screen.getByLabelText('Transition'), 'Dissolve');
+    await waitFor(() => {
+      expect(editsSent(fetchMock).map((e) => e.op)).toEqual([
+        { type: 'setAttribute', name: 'data-trigger', value: 'delay' },
+        { type: 'setAttribute', name: 'data-delay', value: '800' },
+        { type: 'setAttribute', name: 'data-link', value: 'back' },
+        { type: 'setAttribute', name: 'data-transition', value: 'dissolve' },
+      ]);
+    });
+  });
+
+  it('edits the delay of an element whose trigger is "after delay", within limits', async () => {
+    const fetchMock = stubApi();
+    renderPanel({
+      selection: {
+        ...selection,
+        attributes: { ...selection.attributes, 'data-trigger': 'delay', 'data-delay': '800' },
+      },
+    });
+    await userEvent.click(screen.getByRole('tab', { name: 'Prototype' }));
+    const delay = await screen.findByLabelText('Delay (ms)');
+    await userEvent.clear(delay);
+    await userEvent.type(delay, '99999');
+    await userEvent.tab();
+    expect(delay).toHaveValue(30000);
+    await waitFor(() => {
+      expect(editsSent(fetchMock).map((e) => e.op)).toEqual([
+        { type: 'setAttribute', name: 'data-delay', value: '30000' },
+      ]);
+    });
+  });
+
+  it('rejects invalid prototype values in the contract', () => {
+    const edit = (name: string, value: string) =>
+      sourceEditSchema.safeParse({
+        path: 'a.tsx',
+        line: 1,
+        column: 0,
+        baseRevision: 1,
+        op: { type: 'setAttribute', name, value },
+      }).success;
+    expect(edit('data-link', 'back')).toBe(true);
+    expect(edit('data-link', '/checkout')).toBe(true);
+    expect(edit('data-link', 'javascript:alert(1)')).toBe(false);
+    expect(edit('data-trigger', 'hover')).toBe(true);
+    expect(edit('data-trigger', 'scroll')).toBe(false);
+    expect(edit('data-delay', '30001')).toBe(false);
+    expect(edit('data-transition', 'slide')).toBe(false);
   });
 });

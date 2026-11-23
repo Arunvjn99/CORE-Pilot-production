@@ -78,7 +78,12 @@ export const fromPreviewSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ready'), protocol: z.literal(PREVIEW_PROTOCOL) }),
   z.object({ type: z.literal('rendered'), path: z.string().max(300) }),
   z.object({ type: z.literal('select'), element: selectedElementSchema }),
-  z.object({ type: z.literal('navigate'), route: z.string().max(120) }),
+  z.object({
+    type: z.literal('navigate'),
+    /** A screen route, or "back". */
+    route: z.string().max(120),
+    transition: z.enum(['instant', 'dissolve']).default('instant'),
+  }),
   z.object({ type: z.literal('error'), message: z.string().max(2000) }),
   z.object({
     type: z.literal('tree'),

@@ -98,6 +98,37 @@ export async function start(): Promise<void> {
   const target = (event: Event) =>
     event.target instanceof Element ? event.target.closest('[data-core-loc]') : null;
 
+  // ---------- prototype interactions (V7): data-link + data-trigger / data-delay / data-transition ----------
+  const linkOf = (target: EventTarget | null) =>
+    target instanceof Element ? target.closest('[data-link]') : null;
+  const triggerOf = (el: Element) => el.getAttribute('data-trigger') ?? 'click';
+  const follow = (el: Element) => {
+    const route = el.getAttribute('data-link');
+    if (!route) return;
+    post({
+      type: 'navigate',
+      route,
+      transition: el.getAttribute('data-transition') === 'dissolve' ? 'dissolve' : 'instant',
+    });
+  };
+  let delayTimer: ReturnType<typeof setTimeout> | undefined;
+  /** "After delay" starts when a screen is shown in play mode (the first such element wins). */
+  const armDelay = () => {
+    clearTimeout(delayTimer);
+    if (mode !== 'play') return;
+    const el = rootElement.querySelector('[data-link][data-trigger="delay"]');
+    if (!el) return;
+    const ms = Math.min(30_000, Math.max(0, Number(el.getAttribute('data-delay') ?? '0') || 0));
+    delayTimer = setTimeout(() => {
+      follow(el);
+    }, ms);
+  };
+  document.addEventListener('mouseover', (event) => {
+    if (mode !== 'play') return;
+    const link = linkOf(event.target);
+    if (link && triggerOf(link) === 'hover') follow(link);
+  });
+
   document.addEventListener('mousemove', (event) => {
     place(hoverBox, mode === 'design' ? target(event) : null);
   });
@@ -106,11 +137,10 @@ export async function start(): Promise<void> {
     (event) => {
       const el = target(event);
       if (mode === 'play') {
-        const link = event.target instanceof Element ? event.target.closest('[data-link]') : null;
-        const route = link?.getAttribute('data-link');
-        if (route) {
+        const link = linkOf(event.target);
+        if (link && triggerOf(link) === 'click') {
           event.preventDefault();
-          post({ type: 'navigate', route });
+          follow(link);
         }
         return;
       }
@@ -146,7 +176,18 @@ export async function start(): Promise<void> {
   new MutationObserver(() => {
     clearTimeout(treeTimer);
     treeTimer = setTimeout(() => {
-      if (path) post({ type: 'tree', path, nodes: buildLayerTree(rootElement) });
+      if (!path) return;
+      post({ type: 'tree', path, nodes: buildLayerTree(rootElement) });
+      // A re-render replaces the selected element: find it again by its source location and send
+      // its new attributes and classes, so the studio's panels show the source as it is now.
+      if (selected && mode === 'design') {
+        if (!selected.isConnected) {
+          const loc = selected.getAttribute('data-core-loc');
+          selected = loc ? rootElement.querySelector(`[data-core-loc="${CSS.escape(loc)}"]`) : null;
+        }
+        place(selectBox, selected);
+        if (selected) post({ type: 'select', element: describeElement(selected, path) });
+      }
     }, 100);
   }).observe(rootElement, {
     childList: true,
@@ -162,6 +203,7 @@ export async function start(): Promise<void> {
     const message = parsed.data;
     if (message.type === 'mode') {
       mode = message.mode;
+      armDelay();
       place(hoverBox, null);
       place(selectBox, mode === 'design' ? selected : null);
       return;
@@ -205,6 +247,7 @@ export async function start(): Promise<void> {
         }
         place(selectBox, selected);
         post({ type: 'rendered', path });
+        armDelay();
       });
     } catch (error) {
       post({

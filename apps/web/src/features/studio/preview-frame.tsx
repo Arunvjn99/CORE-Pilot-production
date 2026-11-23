@@ -39,7 +39,8 @@ export function PreviewFrame({
   width: number;
   height: number;
   onSelect?: (element: SelectedElement) => void;
-  onNavigate?: (route: string) => void;
+  /** A prototype link was followed: a screen route or "back", with its transition. */
+  onNavigate?: (route: string, transition: 'instant' | 'dissolve') => void;
   onError?: (message: string | null) => void;
   /** The screen's layer tree after each render. */
   onTree?: (nodes: LayerNode[]) => void;
@@ -76,7 +77,7 @@ export function PreviewFrame({
           if (message.element.path === path) handlers.current.onSelect?.(message.element);
           break;
         case 'navigate':
-          handlers.current.onNavigate?.(message.route);
+          handlers.current.onNavigate?.(message.route, message.transition);
           break;
         case 'error':
           handlers.current.onError?.(message.message);

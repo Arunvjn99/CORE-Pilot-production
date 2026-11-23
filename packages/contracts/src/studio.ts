@@ -222,34 +222,69 @@ export type Screen = z.infer<typeof screenSchema>;
 
 export const editableAttributeSchema = z.enum([
   'data-link',
+  'data-trigger',
+  'data-delay',
+  'data-transition',
   'alt',
   'placeholder',
   'aria-label',
   'title',
 ]);
 
-export const sourceEditSchema = z.object({
-  path: z.string().max(300),
-  /** JSX element location reported by the preview (1-based line, 0-based column). */
-  line: z.number().int().min(1),
-  column: z.number().int().min(0),
-  baseRevision: z.number().int().min(0),
-  op: z.discriminatedUnion('type', [
-    z.object({ type: z.literal('setText'), text: z.string().max(2000) }),
-    z.object({
-      type: z.literal('setClassName'),
-      className: z
-        .string()
-        .max(2000)
-        .regex(/^[^"'`{}<>\\]*$/, 'Unsupported characters in class names'),
-    }),
-    z.object({
-      type: z.literal('setAttribute'),
-      name: editableAttributeSchema,
-      value: z.string().max(500).nullable(),
-    }),
-  ]),
-});
+/** Prototype interactions (V7), stored as attributes in the screen's source. */
+export const prototypeTriggerSchema = z.enum(['click', 'hover', 'delay']);
+export const prototypeTransitionSchema = z.enum(['instant', 'dissolve']);
+export const MAX_PROTOTYPE_DELAY_MS = 30_000;
+
+/** Values allowed for the prototype attributes; null removes the attribute. */
+export function prototypeAttributeError(name: string, value: string | null): string | null {
+  if (value === null) return null;
+  switch (name) {
+    case 'data-link':
+      return value === 'back' || /^\/[a-z0-9/-]{0,119}$/.test(value)
+        ? null
+        : 'A link is a screen route (e.g. /checkout) or "back"';
+    case 'data-trigger':
+      return prototypeTriggerSchema.safeParse(value).success ? null : 'Unknown trigger';
+    case 'data-delay':
+      return /^\d{1,5}$/.test(value) && Number(value) <= MAX_PROTOTYPE_DELAY_MS
+        ? null
+        : `Delay is 0–${String(MAX_PROTOTYPE_DELAY_MS)} ms`;
+    case 'data-transition':
+      return prototypeTransitionSchema.safeParse(value).success ? null : 'Unknown transition';
+    default:
+      return null;
+  }
+}
+
+export const sourceEditSchema = z
+  .object({
+    path: z.string().max(300),
+    /** JSX element location reported by the preview (1-based line, 0-based column). */
+    line: z.number().int().min(1),
+    column: z.number().int().min(0),
+    baseRevision: z.number().int().min(0),
+    op: z.discriminatedUnion('type', [
+      z.object({ type: z.literal('setText'), text: z.string().max(2000) }),
+      z.object({
+        type: z.literal('setClassName'),
+        className: z
+          .string()
+          .max(2000)
+          .regex(/^[^"'`{}<>\\]*$/, 'Unsupported characters in class names'),
+      }),
+      z.object({
+        type: z.literal('setAttribute'),
+        name: editableAttributeSchema,
+        value: z.string().max(500).nullable(),
+      }),
+    ]),
+  })
+  .superRefine((edit, ctx) => {
+    if (edit.op.type !== 'setAttribute') return;
+    const message = prototypeAttributeError(edit.op.name, edit.op.value);
+    if (message) ctx.addIssue({ code: 'custom', path: ['op', 'value'], message });
+  });
 export type SourceEdit = z.infer<typeof sourceEditSchema>;
 export const sourceEditResultSchema = z.object({ revision: z.number().int(), code: z.string() });
 

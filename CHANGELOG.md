@@ -2,6 +2,13 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-23 · V7 — prototype triggers, back and transitions
+
+- **Prototype tab:** Trigger (on click, on hover, after delay with milliseconds), Action (navigate to a screen, or **Back**), Transition (instant, dissolve). Stored as source attributes `data-link`, `data-trigger`, `data-delay`, `data-transition`, validated in the contract and API (routes or `back` only; known triggers; 0–30 000 ms).
+- **Present mode** follows hover and delay triggers, keeps a back-stack, and fades on dissolve (none with reduced motion). **Exported apps** behave the same (project template root layout).
+- **Fix:** after an edit the preview now re-sends the selected element once its DOM settles, so the Design and Prototype panels show the element's current source (previously they could show stale values).
+- Tests: integration **174/174** (V7 cases added), web unit **134**, preview **4**; E2E sets a hover trigger and follows it in Present mode.
+
 ### 2026-11-23 · F4 — layers tree and assets
 
 - **Layers:** the selected screen's element tree, nested as rendered and named by its text (or alt/placeholder/link); choosing a layer selects the element on the canvas and in the Design panel. The preview sends the tree whenever the screen's DOM settles (protocol messages `tree` and `selectLoc`, schema-validated, exact-origin as before; capped at 2 000 layers).

@@ -219,6 +219,17 @@ test('designer prompts the agents, edits a screen and plays the prototype', asyn
   );
   await page.screenshot({ path: `${SCREENSHOTS}/studio-layers.png` });
   // Assets: the file's design tokens.
+  // Prototype trigger (V7): the selected Continue button navigates on hover in Present mode.
+  await inspector.getByRole('tab', { name: 'Prototype' }).click();
+  await inspector.getByLabel('Trigger').selectOption('hover');
+  await expect(inspector.getByLabel('Trigger')).toHaveValue('hover', { timeout: 30_000 });
+  await page.getByRole('button', { name: 'Present' }).click();
+  const present = page.getByRole('dialog');
+  await present.frameLocator('iframe').getByRole('button', { name: 'Continue' }).hover();
+  await expect(
+    present.frameLocator('iframe').getByRole('heading', { name: 'Your plan' }),
+  ).toBeVisible({ timeout: 30_000 });
+  await present.getByRole('button', { name: 'Close prototype' }).click();
   await page.getByRole('tab', { name: 'Assets' }).click();
   await expect(
     page.getByRole('button', { name: 'Copy --color-primary', exact: true }),

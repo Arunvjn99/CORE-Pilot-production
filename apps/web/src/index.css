@@ -31,3 +31,18 @@ body {
   background: var(--color-surface);
   color: var(--color-text);
 }
+
+/* Prototype "dissolve" transition (Present mode). */
+@keyframes core-dissolve {
+  from {
+    opacity: 0;
+  }
+}
+.core-dissolve {
+  animation: core-dissolve 300ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .core-dissolve {
+    animation: none;
+  }
+}

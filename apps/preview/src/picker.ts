@@ -1,6 +1,15 @@
 import { type LayerNode, MAX_LAYERS, type SelectedElement } from '@core-studio/contracts';
 
-const ATTRIBUTES = ['data-link', 'alt', 'placeholder', 'aria-label', 'title'] as const;
+const ATTRIBUTES = [
+  'data-link',
+  'data-trigger',
+  'data-delay',
+  'data-transition',
+  'alt',
+  'placeholder',
+  'aria-label',
+  'title',
+] as const;
 
 /** What the studio needs to show and edit the element; never includes page data beyond the element. */
 export function describeElement(el: Element, path: string): SelectedElement {
