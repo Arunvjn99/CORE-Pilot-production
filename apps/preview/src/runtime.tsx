@@ -9,7 +9,7 @@ import * as React from 'react';
 import { Component, type ComponentType, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { compileScreen } from './compile';
-import { describeElement } from './picker';
+import { buildLayerTree, describeElement } from './picker';
 
 /**
  * The preview runtime. It runs on its own origin (a different site from the studio), receives screen
@@ -141,6 +141,20 @@ export async function start(): Promise<void> {
     post({ type: 'error', message: event.message.slice(0, 2000) });
   });
 
+  // React commits asynchronously: send the layer tree whenever the screen's DOM settles.
+  let treeTimer: ReturnType<typeof setTimeout> | undefined;
+  new MutationObserver(() => {
+    clearTimeout(treeTimer);
+    treeTimer = setTimeout(() => {
+      if (path) post({ type: 'tree', path, nodes: buildLayerTree(rootElement) });
+    }, 100);
+  }).observe(rootElement, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+  });
+
   window.addEventListener('message', (event: MessageEvent) => {
     if (event.origin !== studioOrigin || event.source !== window.parent) return;
     const parsed = toPreviewSchema.safeParse(event.data);
@@ -155,6 +169,17 @@ export async function start(): Promise<void> {
     if (message.type === 'clearSelection') {
       selected = null;
       place(selectBox, null);
+      return;
+    }
+    if (message.type === 'selectLoc') {
+      const el = document.querySelector(
+        `[data-core-loc="${String(message.line)}:${String(message.column)}"]`,
+      );
+      if (!el) return;
+      selected = el;
+      place(selectBox, el);
+      el.scrollIntoView({ block: 'nearest' });
+      post({ type: 'select', element: describeElement(el, path) });
       return;
     }
     mode = message.mode;

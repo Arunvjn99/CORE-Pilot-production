@@ -234,4 +234,33 @@ describe('PreviewFrame', () => {
     dispatch({ type: 'navigate', route: '/checkout' }, ORIGIN, win);
     expect(onNavigate).not.toHaveBeenCalled();
   });
+
+  it('passes on layer trees for its own file and sends select-by-location requests', () => {
+    const onTree = vi.fn();
+    const { win, postMessage, rerender } = renderFrame({ onTree });
+    dispatch(ready, ORIGIN, win);
+    const nodes = [{ line: 3, column: 4, tag: 'h1', label: 'Hi', children: [] }];
+    dispatch({ type: 'tree', path: 'src/pages/other.tsx', nodes }, ORIGIN, win);
+    expect(onTree).not.toHaveBeenCalled();
+    dispatch({ type: 'tree', path: PATH, nodes }, ORIGIN, win);
+    expect(onTree).toHaveBeenCalledWith(nodes);
+    dispatch({ type: 'tree', path: PATH, nodes }, 'https://evil.test', win);
+    expect(onTree).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <PreviewFrame
+        previewOrigin={ORIGIN}
+        path={PATH}
+        code={CODE}
+        tokensCss={TOKENS}
+        mode="design"
+        title="Home"
+        width={390}
+        height={844}
+        onTree={onTree}
+        selectRequest={{ line: 3, column: 4, nonce: 1 }}
+      />,
+    );
+    expect(postMessage).toHaveBeenLastCalledWith({ type: 'selectLoc', line: 3, column: 4 }, ORIGIN);
+  });
 });

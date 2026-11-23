@@ -2,6 +2,12 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-23 · F4 — layers tree and assets
+
+- **Layers:** the selected screen's element tree, nested as rendered and named by its text (or alt/placeholder/link); choosing a layer selects the element on the canvas and in the Design panel. The preview sends the tree whenever the screen's DOM settles (protocol messages `tree` and `selectLoc`, schema-validated, exact-origin as before; capped at 2 000 layers).
+- **Assets** tab: the file's design tokens grouped (colours, typography, radius, effects), safe colour swatches only, click to copy `var(--token)`. The safe-colour check and token parser are shared with Settings → Design systems.
+- Tests: preview **4** (2 new), web unit **131** (5 new); E2E selects a layer and opens Assets.
+
 ### 2026-11-23 · Comments in the editor (V9b)
 
 - **Comment tool (C):** click a screen to drop a numbered pin at that spot (pins keep their size at any zoom; screens don't take clicks in comment mode); the new **Comments** tab holds the composer, file-level comments, threads with replies, resolve/reopen, edit (author) and delete (author, or team admins/owners), and "Show resolved". Clicking a pin opens its thread.

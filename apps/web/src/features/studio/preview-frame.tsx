@@ -1,5 +1,6 @@
 import {
   fromPreviewSchema,
+  type LayerNode,
   PREVIEW_PROTOCOL,
   type PreviewMode,
   type SelectedElement,
@@ -25,6 +26,8 @@ export function PreviewFrame({
   onSelect,
   onNavigate,
   onError,
+  onTree,
+  selectRequest,
   clearSelectionKey,
 }: {
   previewOrigin: string;
@@ -38,14 +41,18 @@ export function PreviewFrame({
   onSelect?: (element: SelectedElement) => void;
   onNavigate?: (route: string) => void;
   onError?: (message: string | null) => void;
+  /** The screen's layer tree after each render. */
+  onTree?: (nodes: LayerNode[]) => void;
+  /** Select the element at this source location (a new `nonce` repeats the request). */
+  selectRequest?: { line: number; column: number; nonce: number } | undefined;
   /** Changing this value clears the selection outline inside the frame. */
   clearSelectionKey?: number | undefined;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
-  const handlers = useRef({ onSelect, onNavigate, onError });
+  const handlers = useRef({ onSelect, onNavigate, onError, onTree });
   useEffect(() => {
-    handlers.current = { onSelect, onNavigate, onError };
+    handlers.current = { onSelect, onNavigate, onError, onTree };
   });
 
   const send = (message: ToPreview) => {
@@ -74,6 +81,9 @@ export function PreviewFrame({
         case 'error':
           handlers.current.onError?.(message.message);
           break;
+        case 'tree':
+          if (message.path === path) handlers.current.onTree?.(message.nodes);
+          break;
       }
     };
     window.addEventListener('message', listener);
@@ -86,6 +96,12 @@ export function PreviewFrame({
     if (ready) send({ type: 'render', protocol: PREVIEW_PROTOCOL, path, code, tokensCss, mode });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- send is stable for a given origin
   }, [ready, path, code, tokensCss, mode]);
+
+  useEffect(() => {
+    if (ready && selectRequest)
+      send({ type: 'selectLoc', line: selectRequest.line, column: selectRequest.column });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- send is stable for a given origin
+  }, [ready, selectRequest?.nonce]);
 
   useEffect(() => {
     if (ready && clearSelectionKey !== undefined) send({ type: 'clearSelection' });

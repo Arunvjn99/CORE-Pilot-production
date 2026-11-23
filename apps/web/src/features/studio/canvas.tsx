@@ -1,4 +1,4 @@
-import type { Screen, SelectedElement } from '@core-studio/contracts';
+import type { LayerNode, Screen, SelectedElement } from '@core-studio/contracts';
 import { AlertTriangle } from 'lucide-react';
 import {
   type PointerEvent,
@@ -95,6 +95,8 @@ export function Canvas({
   pins = [],
   onPlacePin,
   onOpenPin,
+  onTree,
+  selectRequest,
 }: {
   screens: Screen[];
   tokensCss: string;
@@ -112,6 +114,9 @@ export function Canvas({
   pins?: CanvasPin[];
   onPlacePin?: (pageId: string, x: number, y: number) => void;
   onOpenPin?: (id: string) => void;
+  onTree?: (path: string, nodes: LayerNode[]) => void;
+  /** Ask one screen to select the element at a source location (from the Layers panel). */
+  selectRequest?: { path: string; line: number; column: number; nonce: number } | null;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; camera: Camera } | null>(null);
@@ -257,6 +262,12 @@ export function Canvas({
                     width={width}
                     height={height}
                     clearSelectionKey={selected ? undefined : clearSelectionKey}
+                    selectRequest={
+                      selectRequest?.path === screen.filePath ? selectRequest : undefined
+                    }
+                    onTree={(nodes) => {
+                      onTree?.(screen.filePath, nodes);
+                    }}
                     onSelect={(element) => {
                       onSelectScreen(screen.filePath);
                       onSelectElement(element);

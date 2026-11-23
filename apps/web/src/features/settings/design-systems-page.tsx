@@ -5,22 +5,13 @@ import { Button, ErrorMessage } from '../../components/ui';
 import { ApiError } from '../../lib/api-client';
 import { hasPermission } from '../auth/permissions';
 import { useSession } from '../auth/use-session';
-import { colorTokens } from '../studio/class-utils';
+import { colorTokens, SAFE_COLOR, tokenValues } from '../studio/class-utils';
 import { useDesignSystem, useDesignSystemMutations, useDesignSystems } from '../studio/studio-api';
 
 const control =
   'w-full rounded-md border border-border bg-surface px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-60';
 
 /** Reads `--name: value;` pairs to preview colour tokens (display only, never injected as CSS). */
-function tokenValues(tokensCss: string): Record<string, string> {
-  const values: Record<string, string> = {};
-  for (const m of tokensCss.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g))
-    if (m[1] && m[2]) values[m[1]] = m[2].trim();
-  return values;
-}
-
-const SAFE_COLOR = /^(#[0-9a-fA-F]{3,8}|rgba?\([\d\s.,%]+\)|hsla?\([\d\s.,%deg]+\))$/;
-
 /** Settings → Design systems: CORE 2.0 and others; each is a versioned DESIGN.md + tokens.css. */
 export function DesignSystemsPage() {
   const { data: session } = useSession();

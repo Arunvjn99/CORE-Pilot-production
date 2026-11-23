@@ -24,6 +24,12 @@ export const toPreviewSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('mode'), mode: previewModeSchema }),
   z.object({ type: z.literal('clearSelection') }),
+  /** Select the element at this source location (from the Layers panel). */
+  z.object({
+    type: z.literal('selectLoc'),
+    line: z.number().int().min(1),
+    column: z.number().int().min(0),
+  }),
 ]);
 export type ToPreview = z.infer<typeof toPreviewSchema>;
 
@@ -47,6 +53,26 @@ export const selectedElementSchema = z.object({
 });
 export type SelectedElement = z.infer<typeof selectedElementSchema>;
 
+/** One element in a screen's layer tree, located in the screen's source. */
+export interface LayerNode {
+  line: number;
+  column: number;
+  tag: string;
+  /** Short visible text or a useful attribute, for the layer's name. */
+  label: string;
+  children: LayerNode[];
+}
+export const MAX_LAYERS = 2000;
+export const layerNodeSchema: z.ZodType<LayerNode> = z.lazy(() =>
+  z.object({
+    line: z.number().int().min(1),
+    column: z.number().int().min(0),
+    tag: z.string().max(40),
+    label: z.string().max(80),
+    children: z.array(layerNodeSchema).max(500),
+  }),
+);
+
 /** Preview → studio. */
 export const fromPreviewSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ready'), protocol: z.literal(PREVIEW_PROTOCOL) }),
@@ -54,5 +80,10 @@ export const fromPreviewSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('select'), element: selectedElementSchema }),
   z.object({ type: z.literal('navigate'), route: z.string().max(120) }),
   z.object({ type: z.literal('error'), message: z.string().max(2000) }),
+  z.object({
+    type: z.literal('tree'),
+    path: z.string().max(300),
+    nodes: z.array(layerNodeSchema).max(500),
+  }),
 ]);
 export type FromPreview = z.infer<typeof fromPreviewSchema>;

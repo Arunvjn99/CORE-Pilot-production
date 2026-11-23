@@ -204,6 +204,27 @@ test('designer prompts the agents, edits a screen and plays the prototype', asyn
   await expect(pin).toHaveCount(0);
   await page.keyboard.press('v');
 
+  // Layers: the selected screen's element tree; choosing a layer selects it like a canvas click.
+  await page.getByRole('tab', { name: 'Layers' }).click();
+  await inspector.getByRole('tab', { name: 'Design' }).click();
+  await page.getByRole('button', { name: /^01\s*Home/ }).click();
+  const layers = page.getByRole('region', { name: 'Layers of Home' });
+  await layers.getByRole('button', { name: /^button Continue/ }).click();
+  await expect(inspector.getByRole('heading', { name: '<button>' })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(layers.getByRole('button', { name: /^button Continue/ })).toHaveAttribute(
+    'aria-current',
+    'true',
+  );
+  await page.screenshot({ path: `${SCREENSHOTS}/studio-layers.png` });
+  // Assets: the file's design tokens.
+  await page.getByRole('tab', { name: 'Assets' }).click();
+  await expect(
+    page.getByRole('button', { name: 'Copy --color-primary', exact: true }),
+  ).toBeVisible();
+  await expectAccessible(page);
+
   // History: download the project as a runnable React app, then restore the generated version.
   await page.getByRole('tab', { name: 'History' }).click();
   const history = page.getByRole('region', { name: 'History' });

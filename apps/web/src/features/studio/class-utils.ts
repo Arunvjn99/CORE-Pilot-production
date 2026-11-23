@@ -88,3 +88,14 @@ export function colorTokens(tokensCss: string): string[] {
 export const SPACING_SCALE = ['0', '1', '2', '3', '4', '6', '8', '12'] as const; // 0–48px on the 4px grid
 export const FONT_SIZES = ['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl', '4xl'] as const;
 export const FONT_WEIGHTS = ['normal', 'medium', 'semibold', 'bold'] as const;
+
+/** Every `--name: value;` declared in tokens.css. */
+export function tokenValues(tokensCss: string): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const m of tokensCss.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g))
+    if (m[1] && m[2]) values[m[1]] = m[2].trim();
+  return values;
+}
+
+/** Colour values that are safe to render as a swatch (no url(), no var(), no expressions). */
+export const SAFE_COLOR = /^(#[0-9a-fA-F]{3,8}|rgba?\([\d\s.,%]+\)|hsla?\([\d\s.,%deg]+\))$/;

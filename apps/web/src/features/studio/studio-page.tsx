@@ -1,4 +1,4 @@
-import type { SelectedElement, SessionResponse } from '@core-studio/contracts';
+import type { LayerNode, SelectedElement, SessionResponse } from '@core-studio/contracts';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
@@ -51,6 +51,7 @@ import { useComments } from './comments-api';
 import { CommentsPanel, type PendingPin } from './comments-panel';
 import { useEditHistory } from './edit-history';
 import { FileMenu } from './file-menu';
+import { AssetsPanel, LayersTree } from './layers-panel';
 import { PreviewFrame } from './preview-frame';
 import { RightPanel } from './right-panel';
 import { HistoryPanel } from './history-panel';
@@ -63,7 +64,7 @@ import {
 } from './studio-api';
 
 const panelTab =
-  'flex-1 border-b-2 border-transparent px-3 py-2 text-sm text-text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-accent data-[state=active]:border-accent data-[state=active]:font-semibold data-[state=active]:text-text';
+  'flex-1 border-b-2 border-transparent px-1 py-2 text-xs text-text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-accent data-[state=active]:border-accent data-[state=active]:font-semibold data-[state=active]:text-text';
 const iconButton =
   'rounded-md p-1.5 text-text-muted hover:bg-surface-muted hover:text-text focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-40';
 
@@ -112,6 +113,13 @@ function Studio({
   const [includeResolved, setIncludeResolved] = useState(false);
   const [pendingPin, setPendingPin] = useState<PendingPin | null>(null);
   const [activeComment, setActiveComment] = useState<string | null>(null);
+  const [trees, setTrees] = useState<Record<string, LayerNode[]>>({});
+  const [selectRequest, setSelectRequest] = useState<{
+    path: string;
+    line: number;
+    column: number;
+    nonce: number;
+  } | null>(null);
   const comments = useComments(projectId, includeResolved);
   const pageMutations = usePageMutations(teamId, projectId);
   const opened = useRef<string | null>(null);
@@ -439,6 +447,9 @@ function Studio({
                 <Tabs.Trigger value="layers" className={panelTab}>
                   Layers
                 </Tabs.Trigger>
+                <Tabs.Trigger value="assets" className={panelTab}>
+                  Assets
+                </Tabs.Trigger>
                 <Tabs.Trigger value="ai" className={panelTab}>
                   AI
                 </Tabs.Trigger>
@@ -463,6 +474,29 @@ function Studio({
                     onNavigate={focusPage}
                   />
                 )}
+                <div className="mt-4 border-t border-border pt-3">
+                  <LayersTree
+                    screenName={screenList.find((s) => s.filePath === selectedPath)?.name ?? null}
+                    nodes={selectedPath ? trees[selectedPath] : undefined}
+                    selected={
+                      selection && selection.path === selectedPath
+                        ? { line: selection.line, column: selection.column }
+                        : null
+                    }
+                    onSelect={(node) => {
+                      if (!selectedPath) return;
+                      setSelectRequest({
+                        path: selectedPath,
+                        line: node.line,
+                        column: node.column,
+                        nonce: Date.now(),
+                      });
+                    }}
+                  />
+                </div>
+              </Tabs.Content>
+              <Tabs.Content value="assets" className="min-h-0 flex-1 overflow-y-auto p-3">
+                <AssetsPanel tokensCss={tokensCss} />
               </Tabs.Content>
               <Tabs.Content value="ai" className="min-h-0 flex-1">
                 <ChatPanel projectId={projectId} canWrite={canWrite} />
@@ -525,6 +559,10 @@ function Studio({
               clearSelectionKey={clearKey}
               tool={tool}
               pins={pins}
+              selectRequest={selectRequest}
+              onTree={(path, nodes) => {
+                setTrees((current) => ({ ...current, [path]: nodes }));
+              }}
               onPlacePin={(pageId, x, y) => {
                 setPendingPin({ pageId, x, y });
                 setPanels(true);
