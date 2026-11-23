@@ -640,6 +640,17 @@ export class RepositoriesService {
     }
   }
 
+  /**
+   * Removes a permanently deleted file's repository and backup bundles from disk. Call only after
+   * the transaction that deleted its rows has committed. Ids are validated like `projectDir`.
+   */
+  async removeFiles(organizationId: string, projectId: string): Promise<void> {
+    const dirs = [this.projectDir(organizationId, projectId)];
+    if (this.config.BUNDLE_ROOT)
+      dirs.push(join(this.config.BUNDLE_ROOT, organizationId, projectId));
+    for (const dir of dirs) await rm(dir, { recursive: true, force: true });
+  }
+
   /** Best-effort per-project backup bundle after each checkpoint (Blob upload: slice 2.6f). */
   private async writeBundle(organizationId: string, projectId: string, git: Git): Promise<void> {
     if (!this.config.BUNDLE_ROOT) return;

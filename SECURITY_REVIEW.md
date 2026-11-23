@@ -190,3 +190,9 @@
 ### V9a — export (2026-11-17)
 
 - Export requires `projects:read` in the project's team (RLS; other teams get 404). The archive is built by the hardened git CLI (`git archive` of a 40-hex tree/commit id only; the folder prefix is a sanitised slug), `.gitignore` is respected and `.git` is never included. Temporary files live in the project's own `tmp` directory and are deleted after the response closes (verified no leftovers). Responses are `no-store`. Each export is audited.
+
+### F3 + comments, delete forever, screen writes (2026-11-23)
+
+- **Delete forever** runs in `purge_trashed_project` (`SECURITY DEFINER`, `search_path` pinned, `EXECUTE` granted only to `core_app`, `PUBLIC` revoked). It deletes only an archived file of the team in the transaction's `app.organization_id` and errors without a team context; the API also requires `projects:delete` (team admin/owner). The app role still cannot delete checkpoints directly (tested, SQLSTATE 42501). Audit events are never deleted.
+- **Comments:** RLS forced on the table; composite same-file foreign keys stop a comment from pointing at another file's screen or thread even below RLS; body 1–4000 characters; edits author-only; deletes by author or team admin.
+- **Request size:** JSON bodies up to 1 MB (was the 100 kB default) to fit 200 000-character screens and DESIGN.md; schemas still enforce each field's limit. Rate limiting is unchanged.

@@ -64,6 +64,14 @@ export class ProjectsController {
     return this.projects.create(auth, body, correlationIdOf(req));
   }
 
+  /** Deletes everything in the team's Trash forever. Declared before `:id` routes. */
+  @Delete('trash')
+  @HttpCode(200)
+  @RequirePermission('projects:delete')
+  emptyTrash(@Auth() auth: AuthContext, @Req() req: AuthenticatedRequest) {
+    return this.projects.emptyTrash(auth, correlationIdOf(req));
+  }
+
   @Get(':id')
   @RequirePermission('projects:read')
   get(@Auth() auth: AuthContext, @Param('id', ParseUUIDPipe) id: string) {
@@ -87,6 +95,18 @@ export class ProjectsController {
     @Body(new ZodPipe(updateProjectSchema)) body: z.infer<typeof updateProjectSchema>,
   ) {
     return this.projects.update(auth, id, body, correlationIdOf(req));
+  }
+
+  /** Deletes a file in Trash forever (repository, history, comments). Team admins and owners. */
+  @Delete(':id')
+  @HttpCode(204)
+  @RequirePermission('projects:delete')
+  async deleteForever(
+    @Auth() auth: AuthContext,
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    await this.projects.deleteForever(auth, id, correlationIdOf(req));
   }
 
   @Post(':id/duplicate')

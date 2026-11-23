@@ -4,4 +4,5 @@ export * from './auth.js';
 export * from './credentials.js';
 export * from './projects.js';
 export * from './studio.js';
+export * from './comments.js';
 export * from './preview.js';

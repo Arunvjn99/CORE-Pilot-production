@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sourceEditResultSchema } from './studio.js';
 
 const name = z.string().trim().min(1, 'Name is required').max(80);
 const description = z.string().trim().max(500);
@@ -173,3 +174,17 @@ export const exportProjectQuerySchema = z.object({
 export const checkpointListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
+
+/** Delete forever: everything in the team's Trash (`DELETE /projects/trash`). */
+export const emptyTrashResultSchema = z.object({ deleted: z.number().int().min(0) });
+export type EmptyTrashResult = z.infer<typeof emptyTrashResultSchema>;
+
+/** Replaces a whole screen's source (undo/redo, code view). Result: `sourceEditResultSchema`. */
+export const writeScreenSourceSchema = z.object({
+  code: z.string().max(200_000),
+  baseRevision: z.number().int().min(0),
+});
+export type WriteScreenSource = z.infer<typeof writeScreenSourceSchema>;
+/** Same shape as a source edit's result: the new working revision and the screen's code. */
+export const screenSourceResultSchema = sourceEditResultSchema;
+export type ScreenSourceResult = z.infer<typeof screenSourceResultSchema>;

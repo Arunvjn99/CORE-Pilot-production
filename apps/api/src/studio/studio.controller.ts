@@ -27,6 +27,7 @@ import {
   updateAgentSchema,
   updateDesignSystemSchema,
   updateProjectDesignSchema,
+  writeScreenSourceSchema,
 } from '@core-studio/contracts';
 import type { Response } from 'express';
 import type { z } from 'zod';
@@ -210,6 +211,19 @@ export class StudioController {
     @Body(new ZodPipe(sourceEditSchema)) body: z.infer<typeof sourceEditSchema>,
   ) {
     return this.studio.editSource(auth, id, body, correlationIdOf(req));
+  }
+
+  /** Replaces a screen's whole source (undo/redo, code view). Returns `{ revision, code }`. */
+  @Put('projects/:id/screens/:pageId/source')
+  @RequirePermission('projects:write')
+  writeScreenSource(
+    @Auth() auth: AuthContext,
+    @Req() req: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('pageId', ParseUUIDPipe) pageId: string,
+    @Body(new ZodPipe(writeScreenSourceSchema)) body: z.infer<typeof writeScreenSourceSchema>,
+  ) {
+    return this.studio.writeScreenSource(auth, id, pageId, body, correlationIdOf(req));
   }
 
   // ---------- runs ----------

@@ -13,6 +13,7 @@ import {
   pgPolicy,
   pgTable,
   primaryKey,
+  real,
   text,
   timestamp,
   uniqueIndex,
@@ -594,5 +595,55 @@ export const runSteps = pgTable(
     uniqueIndex('run_steps_seq_idx').on(t.runId, t.seq),
     index('run_steps_org_time_idx').on(t.organizationId, t.createdAt),
     tenantIsolation('run_steps'),
+  ],
+).enableRLS();
+
+// ---------------- Comments (Figma-style pins on a file) ----------------
+
+/**
+ * Comment threads on a file (`projects` row). A top-level comment is a thread, pinned to a screen
+ * (page_id, relative x/y in 0..1) or file-level (all null); replies have parent_id and no pin.
+ */
+export const comments = pgTable(
+  'comments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    organizationId: uuid('organization_id').notNull(),
+    projectId: uuid('project_id').notNull(),
+    pageId: uuid('page_id').references(() => projectPages.id, { onDelete: 'set null' }),
+    x: real('x'),
+    y: real('y'),
+    parentId: uuid('parent_id'),
+    body: text('body').notNull(),
+    authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    resolvedBy: uuid('resolved_by').references(() => users.id, { onDelete: 'set null' }),
+    edited: boolean('edited').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.projectId, t.organizationId],
+      foreignColumns: [projects.id, projects.organizationId],
+      name: 'comments_project_fk',
+    }).onDelete('cascade'),
+    foreignKey({
+      columns: [t.parentId],
+      foreignColumns: [t.id],
+      name: 'comments_parent_fk',
+    }).onDelete('cascade'),
+    index('comments_project_time_idx').on(t.projectId, t.createdAt),
+    index('comments_parent_idx').on(t.parentId),
+    check('comments_body_length', sql`char_length(body) between 1 and 4000`),
+    check(
+      'comments_position',
+      sql`(x is null) = (y is null) and (x is null or (x between 0 and 1 and y between 0 and 1))`,
+    ),
+    check(
+      'comments_reply_shape',
+      sql`parent_id is null or (page_id is null and x is null and resolved_at is null and resolved_by is null)`,
+    ),
+    tenantIsolation('comments'),
   ],
 ).enableRLS();

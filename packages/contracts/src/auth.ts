@@ -11,6 +11,7 @@ export const permissionSchema = z.enum([
   'members:manage',
   'projects:read',
   'projects:write',
+  'projects:delete',
   'canvas:edit',
   'providers:read',
   'providers:manage',

@@ -2,6 +2,15 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-23 · F3 editor shell; backend for comments, delete forever and screen writes
+
+- **F3 (UI3 editor):** `/file/:id` (old `/projects/:id` links redirect); breadcrumb `Project / File ▾` with file menu (rename, duplicate, move, version history, export, settings, move to trash); left tabs Layers · AI · History; panels toggle (Ctrl/⌘+\\); floating toolbar (move, hand/Space, add screen, comment, ask AI) and shortcuts (V, H, S, C, /, Shift+1, Ctrl/⌘ ±, Esc). "Pages" are now "screens" in the UI. Canvas labels keep a 24 px target at any zoom (axe target-size). A focused toolbar button no longer re-activates when Space is released.
+- **Comments API:** `GET/POST /projects/:id/comments`, replies, edit (author only), resolve/reopen, delete (author or team admin); pins on a screen (x, y in 0..1) or file-level; same-file foreign keys below RLS; trashed files are read-only. Migration 0011.
+- **Delete forever:** `DELETE /projects/:id` (file must be in Trash) and `DELETE /projects/trash` (empty Trash), new permission `projects:delete` for team admins/owners; `SECURITY DEFINER` purge function keeps checkpoints append-only for the app role; repository and bundles removed from disk; audit kept.
+- **Screen source writes:** `PUT /projects/:id/screens/:pageId/source` with `baseRevision` (for undo/redo and a code view); invalid TSX refused.
+- JSON request bodies may be up to 1 MB (the previous 100 kB default silently capped DESIGN.md and screen code below their schema limits).
+- Tests: integration **174/174** (18 new), web unit **115/115**, E2E 16/17 (sandbox-only OpenAI case).
+
 ### 2026-11-23 · F2 — Figma-style file browser
 
 - **Files** replaces the project dashboard (`/files/recent`, `/files/drafts`, `/files/project/:id`, `/files/trash`; `/` and `/projects` redirect to Recents). Files sidebar: Recents, Drafts, Projects (create, rename, delete with file count), Trash.

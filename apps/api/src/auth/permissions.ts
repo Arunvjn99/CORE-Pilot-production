@@ -14,6 +14,7 @@ const DESIGNER: readonly Permission[] = [
 ];
 const ADMIN: readonly Permission[] = [
   ...DESIGNER,
+  'projects:delete',
   'members:manage',
   'providers:manage',
   'design-systems:manage',

@@ -13,6 +13,14 @@ describe('permissions', () => {
     expect(resolvePermissions(null, false).size).toBe(0);
   });
 
+  it('lets only team admins and owners delete files forever', () => {
+    expect(resolvePermissions('viewer', false).has('projects:delete')).toBe(false);
+    expect(resolvePermissions('designer', false).has('projects:delete')).toBe(false);
+    expect(resolvePermissions('org_admin', false).has('projects:delete')).toBe(true);
+    expect(resolvePermissions('org_owner', false).has('projects:delete')).toBe(true);
+    expect(resolvePermissions(null, true).has('projects:delete')).toBe(false);
+  });
+
   it('gives company admins company-wide permissions only', () => {
     const p = resolvePermissions(null, true);
     expect(p.has('orgs:create')).toBe(true);

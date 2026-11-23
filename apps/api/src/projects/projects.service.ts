@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type {
@@ -93,6 +94,8 @@ const toPage = (row: typeof projectPages.$inferSelect): ProjectPage => ({
 /** Projects and pages of the active team. RLS scopes every query to that team. */
 @Injectable()
 export class ProjectsService {
+  private readonly logger = new Logger(ProjectsService.name);
+
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly audit: AuditService,
@@ -365,6 +368,86 @@ export class ProjectsService {
         throw conflict('NAME_TAKEN', 'A project with this name already exists in this team.');
       throw error;
     }
+  }
+
+  // ---------- delete forever (Trash) ----------
+
+  /**
+   * Deletes trashed files in the caller's team through the SECURITY DEFINER function
+   * `purge_trashed_project` (checkpoints are append-only for the app role, ADR-0012). Rows are
+   * locked in id order, then each repository lock, so writers of the same file are serialised.
+   */
+  private async purge(
+    tx: Database,
+    auth: AuthContext,
+    organizationId: string,
+    files: { id: string; name: string }[],
+    correlationId: string,
+    via: 'file' | 'empty_trash',
+  ) {
+    for (const file of files) {
+      await this.repositories.lock(tx, file.id);
+      const result = await tx.execute<{ result: string }>(
+        sql`select purge_trashed_project(${file.id}::uuid) as result`,
+      );
+      const outcome = result.rows[0]?.result;
+      if (outcome === 'not_found') throw new NotFoundException('Project not found');
+      if (outcome !== 'deleted')
+        throw conflict('NOT_IN_TRASH', 'Move the file to Trash before deleting it forever.');
+      await this.audit.record(tx, {
+        organizationId,
+        actorId: auth.userId,
+        action: 'project.deleted_permanently',
+        targetType: 'project',
+        targetId: file.id,
+        correlationId,
+        metadata: { name: file.name, via },
+      });
+    }
+  }
+
+  /** Repository and bundles go after commit; a failure leaves only unreachable files behind. */
+  private async removeFiles(organizationId: string, ids: string[]) {
+    for (const id of ids)
+      try {
+        await this.repositories.removeFiles(organizationId, id);
+      } catch (error) {
+        this.logger.error({ err: error, projectId: id }, 'Removing repository files failed');
+      }
+  }
+
+  /** Permanently deletes one file that is already in Trash (team admins and owners). */
+  async deleteForever(auth: AuthContext, id: string, correlationId: string): Promise<void> {
+    const { organizationId } = this.ctx(auth);
+    await this.run(auth, async (tx) => {
+      const [row] = await tx
+        .select({ id: projects.id, name: projects.name, status: projects.status })
+        .from(projects)
+        .where(eq(projects.id, id))
+        .for('update');
+      if (!row) throw new NotFoundException('Project not found');
+      if (row.status !== 'archived')
+        throw conflict('NOT_IN_TRASH', 'Move the file to Trash before deleting it forever.');
+      await this.purge(tx, auth, organizationId, [row], correlationId, 'file');
+    });
+    await this.removeFiles(organizationId, [id]);
+  }
+
+  /** Permanently deletes every file in the team's Trash. */
+  async emptyTrash(auth: AuthContext, correlationId: string): Promise<{ deleted: number }> {
+    const { organizationId } = this.ctx(auth);
+    const ids = await this.run(auth, async (tx) => {
+      const rows = await tx
+        .select({ id: projects.id, name: projects.name })
+        .from(projects)
+        .where(eq(projects.status, 'archived'))
+        .orderBy(asc(projects.id))
+        .for('update');
+      await this.purge(tx, auth, organizationId, rows, correlationId, 'empty_trash');
+      return rows.map((r) => r.id);
+    });
+    await this.removeFiles(organizationId, ids);
+    return { deleted: ids.length };
   }
 
   // ---------- pages (repository-backed: PROJECT_REPOSITORY_DESIGN.md §4) ----------

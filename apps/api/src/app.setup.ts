@@ -10,6 +10,8 @@ export function configureApp(app: NestExpressApplication, config: AppConfig): IN
   app.useLogger(app.get(Logger));
   app.disable('x-powered-by');
   app.set('trust proxy', config.TRUST_PROXY_HOPS);
+  // Screen sources and DESIGN.md may be up to 200 000 characters (Express' default is 100 kB).
+  app.useBodyParser('json', { limit: '1mb' });
   app.setGlobalPrefix('api');
   app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
   app.use(

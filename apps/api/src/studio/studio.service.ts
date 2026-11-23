@@ -5,10 +5,15 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { ProjectDesign, ScreensResponse, SourceEdit } from '@core-studio/contracts';
+import type {
+  ProjectDesign,
+  ScreensResponse,
+  SourceEdit,
+  ScreenSourceResult,
+} from '@core-studio/contracts';
 import { pageFilePath, parseManifest } from '@core-studio/project-template';
 import { DEFAULT_DESIGN_SYSTEM } from '@core-studio/studio-library';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service.js';
 import type { AuthContext } from '../auth/auth-context.js';
 import { DATABASE } from '../db/database.module.js';
@@ -16,7 +21,7 @@ import { type Database, withDbContext } from '../db/database.js';
 import { projectPages, projects } from '../db/schema.js';
 import { type RepoActor, RepositoriesService } from '../repositories/repositories.service.js';
 import { LibraryService } from './library.service.js';
-import { applySourceEdit, SourceEditError } from './source-edit.js';
+import { applySourceEdit, isValidScreen, SourceEditError } from './source-edit.js';
 
 export const DESIGN_MD_PATH = 'DESIGN.md';
 export const TOKENS_PATH = 'src/styles/tokens.css';
@@ -219,6 +224,59 @@ export class StudioService {
         metadata: { path: edit.path, op: edit.op.type },
       });
       return { revision, code: next };
+    });
+  }
+
+  /**
+   * Replaces a whole screen's source (undo/redo, code view). The code must parse as TSX with a
+   * default export; `baseRevision` guards against overwriting concurrent changes.
+   */
+  writeScreenSource(
+    auth: AuthContext,
+    projectId: string,
+    pageId: string,
+    input: { code: string; baseRevision: number },
+    correlationId: string,
+  ): Promise<ScreenSourceResult> {
+    const ctx = this.ctx(auth);
+    return withDbContext(this.db, ctx, async (tx) => {
+      await this.lockProject(tx, projectId, true);
+      const actor = this.actor(auth, ctx.organizationId);
+      const manifest = await this.repositories.ensureReady(tx, actor, projectId);
+      const [page] = await tx
+        .select({ id: projectPages.id })
+        .from(projectPages)
+        .where(and(eq(projectPages.id, pageId), eq(projectPages.projectId, projectId)));
+      const entry = page ? manifest.pages.find((p) => p.id === page.id) : undefined;
+      if (!entry)
+        throw new NotFoundException({ code: 'PAGE_NOT_FOUND', message: 'Screen not found' });
+      if (!isValidScreen(input.code))
+        throw new BadRequestException({
+          code: 'INVALID_SCREEN',
+          message: 'The screen must be valid TSX with a default export.',
+        });
+      const path = pageFilePath(entry);
+      const revision = await this.repositories.writeFiles(
+        tx,
+        actor,
+        projectId,
+        [{ path, content: input.code }],
+        input.baseRevision,
+      );
+      await tx
+        .update(projects)
+        .set({ updatedAt: sql`now()` })
+        .where(eq(projects.id, projectId));
+      await this.audit.record(tx, {
+        organizationId: ctx.organizationId,
+        actorId: auth.userId,
+        action: 'screen.source_written',
+        targetType: 'project',
+        targetId: projectId,
+        correlationId,
+        metadata: { pageId, path, length: input.code.length },
+      });
+      return { revision, code: input.code };
     });
   }
 
