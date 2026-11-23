@@ -14,8 +14,8 @@ function stub(screens: unknown[]) {
       Promise.resolve(
         path === '/api/v1/studio/config'
           ? json(200, { previewOrigin: ORIGIN, langsmithEnabled: false })
-          : path === `/api/v1/projects/${FILE}/screens`
-            ? json(200, { revision: 1, tokensCss: '', screens })
+          : path === `/api/v1/projects/thumbnails?ids=${FILE}`
+            ? json(200, screens)
             : json(404, {}),
       ),
     ),
@@ -48,15 +48,7 @@ afterEach(() => {
 
 describe('FileThumbnail', () => {
   it('renders the first screen live from the preview origin, hidden from assistive tech', async () => {
-    stub([
-      {
-        pageId: 'b0000000-0000-4000-8000-000000000001',
-        name: 'Home',
-        route: '/',
-        filePath: 'src/a.tsx',
-        code: 'export default 1',
-      },
-    ]);
+    stub([{ id: FILE, filePath: 'src/a.tsx', code: 'export default 1', tokensCss: '' }]);
     const { container } = renderThumb();
     await waitFor(() => {
       expect(container.querySelector('iframe')).not.toBeNull();
@@ -73,5 +65,19 @@ describe('FileThumbnail', () => {
     const { container } = renderThumb();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(container.querySelector('iframe')).toBeNull();
+  });
+
+  it('batches the cards on a page into one request', async () => {
+    const fetchMock = vi.fn((path: string) =>
+      Promise.resolve(
+        path.startsWith('/api/v1/projects/thumbnails') ? json(200, []) : json(404, {}),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const ids = ['a0000000-0000-4000-8000-00000000000a', 'a0000000-0000-4000-8000-00000000000b'];
+    const { loadThumbnail } = await import('./file-thumbnail');
+    expect(await Promise.all(ids.map((id) => loadThumbnail(id)))).toEqual([null, null]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0]?.[0]).toBe(`/api/v1/projects/thumbnails?ids=${ids.join(',')}`);
   });
 });

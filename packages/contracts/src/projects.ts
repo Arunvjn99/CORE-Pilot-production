@@ -147,6 +147,22 @@ export const restoreCheckpointSchema = z.object({
   /** Save uncommitted work as a checkpoint before restoring (default). */
   safetyCheckpoint: z.boolean().default(true),
 });
+/** Thumbnails for the file browser: first screen of up to 48 files in one request. */
+export const MAX_THUMBNAILS = 48;
+export const thumbnailQuerySchema = z.object({
+  ids: z
+    .string()
+    .transform((v) => [...new Set(v.split(',').filter(Boolean))])
+    .pipe(z.array(z.uuid()).min(1).max(MAX_THUMBNAILS)),
+});
+export const fileThumbnailSchema = z.object({
+  id: z.uuid(),
+  filePath: z.string(),
+  code: z.string(),
+  tokensCss: z.string(),
+});
+export type FileThumbnail = z.infer<typeof fileThumbnailSchema>;
+
 /** Duplicate a file (repository and history copied). Default name: "<name> (copy)". */
 export const duplicateProjectSchema = z.object({ name: name.optional() });
 

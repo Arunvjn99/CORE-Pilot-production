@@ -128,3 +128,15 @@ Defect found by tests and fixed: folder file counts were always 0 (unqualified c
 | E2E on the Compose stack                                                          | 16/17 — the studio journey now covers the UI3 editor, undo/redo, comments, layers, assets and a hover trigger in Present mode; the remaining failure is the sandbox-blocked OpenAI call |
 
 Defects found and fixed: Space released on a focused toolbar button re-activated it; canvas labels were below the 24 px touch target when zoomed out; the layer tree and the selection re-sync ran before React committed the new DOM (now on DOM settle); stale "before" code for quick successive edits (cache now updated from each write); an `onEdited` wiring miss that left Undo disabled (caught by E2E).
+
+### Knowledge, Verify, thumbnails, retention (2026-11-23, evening)
+
+| Suite                           | Result                                                                                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Lint, typecheck, unit (`turbo`) | 21/21                                                                                                                                      |
+| API unit / integration          | 79 / **190/190**                                                                                                                           |
+| AI runtime                      | 83 (ruff, mypy strict clean)                                                                                                               |
+| Web unit / preview unit         | 162 / 16                                                                                                                                   |
+| E2E on the Compose stack        | 16/17 — now includes Verify checks on generated screens and the Knowledge page (axe); remaining failure is the sandbox-blocked OpenAI call |
+
+Defects found and fixed: per-card thumbnail requests exceeded the API rate limit and broke the editor's screen loading (now one batched request); an order-dependent credentials test (picked a keyless credential at random); a fake test key flagged by gitleaks (now low-entropy, exact finding ignored).

@@ -24,6 +24,7 @@ import {
   duplicateProjectSchema,
   exportProjectQuerySchema,
   projectListQuerySchema,
+  thumbnailQuerySchema,
   updatePageSchema,
   updateProjectSchema,
 } from '@core-studio/contracts';
@@ -70,6 +71,16 @@ export class ProjectsController {
   @RequirePermission('projects:delete')
   emptyTrash(@Auth() auth: AuthContext, @Req() req: AuthenticatedRequest) {
     return this.projects.emptyTrash(auth, correlationIdOf(req));
+  }
+
+  /** Declared before `:id`. One request for all visible file cards (rate-limit friendly). */
+  @Get('thumbnails')
+  @RequirePermission('projects:read')
+  thumbnails(
+    @Auth() auth: AuthContext,
+    @Query(new ZodPipe(thumbnailQuerySchema)) query: z.infer<typeof thumbnailQuerySchema>,
+  ) {
+    return this.projects.thumbnails(auth, query.ids);
   }
 
   @Get(':id')

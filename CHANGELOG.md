@@ -2,6 +2,12 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-23 · Batched thumbnails (fix); browser checks for Verify and Knowledge
+
+- **Fix:** live file thumbnails fetched each file's screens separately and tripped the API rate limit (120/min per client) on pages with many files, which then made the editor fail to load its screens. Thumbnails now come from `GET /projects/thumbnails?ids=…` (first screen and tokens, up to 48 files per request, team-scoped, lock-free), and the browser batches the visible cards into one request.
+- E2E now runs Verify (axe + design-system checks) on both generated screens and opens Settings → Knowledge with an accessibility scan.
+- Totals: integration **190/190**, web 162, preview 16, API unit 79, AI runtime 83; E2E 16/17 (sandbox-only OpenAI case).
+
 ### 2026-11-23 · Automatic Trash clean-up
 
 - Files in Trash longer than `TRASH_RETENTION_DAYS` (default 30; 0 turns it off) are deleted forever by an hourly job: one API replica at a time (Redis lock), teams listed in the company-admin context, each team's files purged in that team's own RLS context through `purge_trashed_project`, repositories removed, audited as `system:trash-retention`.

@@ -230,6 +230,15 @@ test('designer prompts the agents, edits a screen and plays the prototype', asyn
     present.frameLocator('iframe').getByRole('heading', { name: 'Your plan' }),
   ).toBeVisible({ timeout: 30_000 });
   await present.getByRole('button', { name: 'Close prototype' }).click();
+  // Verify: accessibility (axe, WCAG 2.2 AA) and design-system checks run inside the preview.
+  await inspector.getByRole('tab', { name: 'Verify' }).click();
+  await inspector.getByRole('button', { name: 'Check all screens' }).click();
+  for (const name of ['Home', 'Dashboard']) {
+    const result = inspector.getByRole('region', { name, exact: true });
+    await expect(result).toContainText(/No issues found|\d+ issues?:/, { timeout: 60_000 });
+    await expect(result.getByRole('alert')).toHaveCount(0);
+  }
+  await page.screenshot({ path: `${SCREENSHOTS}/studio-verify.png` });
   await page.getByRole('tab', { name: 'Assets' }).click();
   await expect(
     page.getByRole('button', { name: 'Copy --color-primary', exact: true }),
@@ -286,4 +295,10 @@ test('metrics, agents and design systems reflect the run', async ({ page }) => {
   await expect(page.getByText('CORE 2.0').first()).toBeVisible();
   await expectAccessible(page);
   await page.screenshot({ path: `${SCREENSHOTS}/settings-design-systems.png`, fullPage: true });
+
+  await page.goto('/settings/knowledge');
+  await expect(
+    page.getByRole('navigation', { name: 'Settings' }).getByRole('link', { name: 'Knowledge' }),
+  ).toHaveAttribute('aria-current', 'page');
+  await expectAccessible(page);
 });

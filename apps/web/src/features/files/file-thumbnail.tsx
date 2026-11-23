@@ -1,9 +1,48 @@
-import { screensResponseSchema } from '@core-studio/contracts';
+import {
+  type FileThumbnail as Thumb,
+  fileThumbnailSchema,
+  MAX_THUMBNAILS,
+} from '@core-studio/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import { z } from 'zod';
 import { apiGet } from '../../lib/api-client';
 import { PreviewFrame } from '../studio/preview-frame';
-import { studioKeys, useStudioConfig } from '../studio/studio-api';
+import { useStudioConfig } from '../studio/studio-api';
+
+/**
+ * Thumbnails are fetched in batches: every card asks for its file, the ids requested within a few
+ * milliseconds go out as one request (up to MAX_THUMBNAILS each), so a page of cards costs one call
+ * instead of one per file (the API rate-limits per client).
+ */
+const pending = new Map<string, ((thumb: Thumb | null) => void)[]>();
+let flushTimer: ReturnType<typeof setTimeout> | undefined;
+
+function flush() {
+  flushTimer = undefined;
+  const batch = [...pending.entries()];
+  pending.clear();
+  for (let i = 0; i < batch.length; i += MAX_THUMBNAILS) {
+    const chunk = batch.slice(i, i + MAX_THUMBNAILS);
+    const ids = chunk.map(([id]) => id).join(',');
+    apiGet(`/api/v1/projects/thumbnails?ids=${ids}`, z.array(fileThumbnailSchema))
+      .then((thumbs) => {
+        const byId = new Map(thumbs.map((t) => [t.id, t]));
+        for (const [id, resolvers] of chunk)
+          for (const resolve of resolvers) resolve(byId.get(id) ?? null);
+      })
+      .catch(() => {
+        for (const [, resolvers] of chunk) for (const resolve of resolvers) resolve(null);
+      });
+  }
+}
+
+export function loadThumbnail(id: string): Promise<Thumb | null> {
+  return new Promise((resolve) => {
+    pending.set(id, [...(pending.get(id) ?? []), resolve]);
+    flushTimer ??= setTimeout(flush, 30);
+  });
+}
 
 const WIDTH = 1280; // desktop frame, scaled down to the card
 const HEIGHT = 800;
@@ -38,12 +77,11 @@ export function FileThumbnail({ fileId, label }: { fileId: string; label: string
   const { ref, near } = useNearViewport<HTMLDivElement>();
   const [width, setWidth] = useState(0);
   const config = useStudioConfig();
-  const screens = useQuery({
-    queryKey: studioKeys.screens(fileId),
-    queryFn: ({ signal }) =>
-      apiGet(`/api/v1/projects/${fileId}/screens`, screensResponseSchema, signal),
+  const thumb = useQuery({
+    queryKey: ['thumbnail', fileId],
+    queryFn: () => loadThumbnail(fileId),
     enabled: near,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
   useEffect(() => {
     const el = ref.current;
@@ -56,7 +94,7 @@ export function FileThumbnail({ fileId, label }: { fileId: string; label: string
       observer.disconnect();
     };
   }, [ref]);
-  const first = screens.data?.screens[0];
+  const first = thumb.data;
   const origin = config.data?.previewOrigin;
   const scale = width > 0 ? width / WIDTH : 0;
 
@@ -76,7 +114,7 @@ export function FileThumbnail({ fileId, label }: { fileId: string; label: string
             previewOrigin={origin}
             path={first.filePath}
             code={first.code}
-            tokensCss={screens.data?.tokensCss ?? ''}
+            tokensCss={first.tokensCss}
             mode="play"
             title={`Thumbnail of ${label}`}
             width={WIDTH}

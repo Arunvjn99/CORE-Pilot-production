@@ -1,6 +1,7 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import {
   checkpointSchema,
+  fileThumbnailSchema,
   folderSchema,
   pageSchema,
   type Project,
@@ -273,6 +274,28 @@ describe('files', () => {
       .send({})
       .expect(409);
     expect(res.body).toMatchObject({ error: { code: 'PROJECT_ARCHIVED' } });
+  });
+});
+
+describe('thumbnails', () => {
+  it('return the first screen of several files in one request, only for the caller’s team', async () => {
+    const a = await newFile(designer, 'Thumb A');
+    const b = await newFile(designer, 'Thumb B');
+    const theirs = await newFile(outsider, 'Their thumb');
+    const res = await get(
+      `/api/v1/projects/thumbnails?ids=${a.id},${b.id},${theirs.id},${a.id}`,
+      viewer,
+    ).expect(200);
+    const thumbs = z.array(fileThumbnailSchema).parse(res.body);
+    expect(thumbs.map((t) => t.id).sort()).toEqual([a.id, b.id].sort());
+    for (const t of thumbs) {
+      expect(t.filePath).toMatch(/^src\/pages\/.+\.tsx$/);
+      expect(t.code).toContain('export default');
+      expect(t.tokensCss).toContain('--color-primary');
+    }
+    await get('/api/v1/projects/thumbnails?ids=not-a-uuid', viewer).expect(400);
+    const many = Array.from({ length: 49 }, () => crypto.randomUUID()).join(',');
+    await get(`/api/v1/projects/thumbnails?ids=${many}`, viewer).expect(400);
   });
 });
 

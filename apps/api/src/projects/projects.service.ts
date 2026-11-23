@@ -11,6 +11,7 @@ import type {
   CreatePage,
   ProjectRepository,
   CreateProject,
+  FileThumbnail,
   Project,
   ProjectPage,
   ProjectListQuery,
@@ -18,7 +19,7 @@ import type {
   UpdatePage,
   UpdateProject,
 } from '@core-studio/contracts';
-import { and, asc, desc, eq, ilike, isNull, type SQL, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, ilike, inArray, isNull, type SQL, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { pageFilePath } from '@core-studio/project-template';
 import { AuditService } from '../audit/audit.service.js';
@@ -180,6 +181,40 @@ export class ProjectsService {
         code: 'FOLDER_NOT_FOUND',
         message: 'This project no longer exists.',
       });
+  }
+
+  /**
+   * First screen and tokens of several files for the browser's thumbnails, in one request. Files of
+   * other teams are invisible (RLS) and simply missing from the result; files whose repository is
+   * not ready yet are skipped rather than initialised here. Read-only and lock-free.
+   */
+  thumbnails(auth: AuthContext, ids: string[]): Promise<FileThumbnail[]> {
+    return this.run(auth, async (tx, organizationId) => {
+      const pages = await tx
+        .selectDistinctOn([projectPages.projectId], {
+          projectId: projectPages.projectId,
+          filePath: projectPages.filePath,
+        })
+        .from(projectPages)
+        .where(inArray(projectPages.projectId, ids))
+        .orderBy(projectPages.projectId, asc(projectPages.position), asc(projectPages.createdAt));
+      const actor = this.actor(auth, organizationId);
+      const result: FileThumbnail[] = [];
+      for (const page of pages) {
+        if (!page.filePath) continue;
+        try {
+          const code = await this.repositories.readFile(actor, page.projectId, page.filePath);
+          if (code === null) continue;
+          const tokensCss =
+            (await this.repositories.readFile(actor, page.projectId, 'src/styles/tokens.css')) ??
+            '';
+          result.push({ id: page.projectId, filePath: page.filePath, code, tokensCss });
+        } catch {
+          // A missing or damaged repository only costs its thumbnail.
+        }
+      }
+      return result;
+    });
   }
 
   get(auth: AuthContext, id: string): Promise<Project> {
