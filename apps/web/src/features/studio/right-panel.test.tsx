@@ -4,14 +4,16 @@ import {
   type Screen,
   type SelectedElement,
   sourceEditSchema,
+  type VerifyIssue,
 } from '@core-studio/contracts';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setCsrfToken } from '../../lib/api-client';
 import { json, TEAM_ID } from '../../test-fixtures';
 import { RightPanel } from './right-panel';
+import type { ScreenCheck } from './verify-checks';
 
 const PROJECT_ID = '77777777-7777-4777-8777-777777777777';
 const EDIT_PATH = `/api/v1/projects/${PROJECT_ID}/source-edits`;
@@ -334,6 +336,130 @@ describe('RightPanel verify tab', () => {
       await screen.findByText('The provider is rate limiting the key. Try again shortly.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Not traced')).toBeInTheDocument();
+  });
+
+  const issues: VerifyIssue[] = [
+    {
+      id: 'ds-palette-color',
+      severity: 'minor',
+      category: 'design-system',
+      message: 'Tailwind palette colour bg-blue-500 on <div>.',
+      help: 'Use a design-token colour.',
+      line: 3,
+      column: 4,
+    },
+    {
+      id: 'button-name',
+      severity: 'critical',
+      category: 'accessibility',
+      message: 'Element does not have inner text',
+      help: 'Buttons must have discernible text',
+      line: 14,
+      column: 6,
+    },
+    {
+      id: 'color-contrast',
+      severity: 'serious',
+      category: 'accessibility',
+      message: 'Insufficient colour contrast of 2.1:1',
+      help: 'Elements must meet minimum color contrast ratio thresholds',
+      line: 9,
+      column: 8,
+    },
+    {
+      id: 'ds-target-size',
+      severity: 'serious',
+      category: 'design-system',
+      message: 'Touch target is 16×16px, smaller than 24×24px.',
+      help: 'Give interactive elements at least 24×24px.',
+    },
+  ];
+  const done = (list: VerifyIssue[], error?: string): ScreenCheck => ({
+    status: 'done',
+    result: { issues: list, checkedAt: '2026-11-23T10:00:00.000Z', ...(error ? { error } : {}) },
+  });
+
+  it('runs checks for the selected screen or all screens', async () => {
+    stubApi();
+    const run = vi.fn();
+    renderPanel({ selectedPath: 'src/pages/home.tsx', verify: { checks: {}, run } });
+    await userEvent.click(screen.getByRole('tab', { name: 'Verify' }));
+    expect(screen.getByText(/Check Home for accessibility/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Run checks' }));
+    expect(run).toHaveBeenLastCalledWith(['src/pages/home.tsx']);
+    await userEvent.click(screen.getByRole('button', { name: 'Check all screens' }));
+    expect(run).toHaveBeenLastCalledWith(['src/pages/home.tsx', 'src/pages/checkout.tsx']);
+    // The AI review stays below the checks.
+    expect(screen.getByRole('heading', { name: 'Latest run' })).toBeInTheDocument();
+  });
+
+  it('cannot run checks for no screen, or while they run', async () => {
+    stubApi();
+    renderPanel({ selectedPath: null, verify: { checks: {}, run: vi.fn() } });
+    await userEvent.click(screen.getByRole('tab', { name: 'Verify' }));
+    expect(screen.getByRole('button', { name: 'Run checks' })).toBeDisabled();
+    expect(screen.getByText(/Select a screen to check it/)).toBeInTheDocument();
+  });
+
+  it('shows a running state', async () => {
+    stubApi();
+    renderPanel({
+      selectedPath: 'src/pages/home.tsx',
+      verify: { checks: { 'src/pages/home.tsx': { status: 'running' } }, run: vi.fn() },
+    });
+    await userEvent.click(screen.getByRole('tab', { name: 'Verify' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Checking…');
+    expect(screen.getByRole('button', { name: 'Run checks' })).toBeDisabled();
+  });
+
+  it('groups issues by severity with counts, and a click selects the element and opens Design', async () => {
+    stubApi();
+    const onShowIssue = vi.fn();
+    renderPanel({
+      selection: null,
+      selectedPath: 'src/pages/home.tsx',
+      verify: {
+        checks: { 'src/pages/home.tsx': done(issues), 'src/pages/checkout.tsx': done([]) },
+        run: vi.fn(),
+      },
+      onShowIssue,
+    });
+    await userEvent.click(screen.getByRole('tab', { name: 'Verify' }));
+    const home = screen.getByRole('region', { name: 'Home' });
+    expect(home).toHaveTextContent('4 issues: 1 critical, 2 serious, 1 minor');
+    const groups = within(home)
+      .getAllByRole('heading', { level: 5 })
+      .map((h) => h.textContent);
+    expect(groups).toEqual(['Critical (1)', 'Serious (2)', 'Minor (1)']);
+    // A clean screen says so.
+    expect(screen.getByRole('region', { name: 'Checkout' })).toHaveTextContent('No issues found');
+
+    // An issue without a source location is listed but not clickable.
+    expect(
+      within(home)
+        .getByText(/Touch target is 16×16px/)
+        .closest('button'),
+    ).toBeNull();
+
+    await userEvent.click(
+      within(home).getByRole('button', { name: /Insufficient colour contrast/ }),
+    );
+    expect(onShowIssue).toHaveBeenCalledWith('src/pages/home.tsx', 9, 8);
+    expect(screen.getByRole('tab', { name: 'Design' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('shows why the checks could not run', async () => {
+    stubApi();
+    renderPanel({
+      selectedPath: 'src/pages/home.tsx',
+      verify: {
+        checks: { 'src/pages/home.tsx': done([], 'The screen did not render.') },
+        run: vi.fn(),
+      },
+    });
+    await userEvent.click(screen.getByRole('tab', { name: 'Verify' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('The screen did not render.');
+    expect(screen.queryByText('No issues found')).not.toBeInTheDocument();
   });
 });
 

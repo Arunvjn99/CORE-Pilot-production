@@ -13,6 +13,7 @@
     "@babel/standalone": "7.29.13",
     "@core-studio/contracts": "workspace:*",
     "@tailwindcss/browser": "4.3.5",
+    "axe-core": "4.14.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },

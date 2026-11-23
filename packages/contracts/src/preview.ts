@@ -30,6 +30,8 @@ export const toPreviewSchema = z.discriminatedUnion('type', [
     line: z.number().int().min(1),
     column: z.number().int().min(0),
   }),
+  /** Run the automated Verify checks (accessibility + design system) on the rendered screen. */
+  z.object({ type: z.literal('verify') }),
 ]);
 export type ToPreview = z.infer<typeof toPreviewSchema>;
 
@@ -73,6 +75,27 @@ export const layerNodeSchema: z.ZodType<LayerNode> = z.lazy(() =>
   }),
 );
 
+export const VERIFY_SEVERITIES = ['critical', 'serious', 'moderate', 'minor'] as const;
+export const verifySeveritySchema = z.enum(VERIFY_SEVERITIES);
+export type VerifySeverity = z.infer<typeof verifySeveritySchema>;
+export const MAX_VERIFY_ISSUES = 200;
+
+/**
+ * One finding of the Verify checks. `line`/`column` locate the element (or its nearest located
+ * ancestor) in the screen's source, as `data-core-loc`; both are absent when nothing is located.
+ */
+export const verifyIssueSchema = z.object({
+  /** The rule: an axe-core rule id or a `ds-*` design-system rule. */
+  id: z.string().min(1).max(80),
+  severity: verifySeveritySchema,
+  category: z.enum(['accessibility', 'design-system']),
+  message: z.string().max(300),
+  help: z.string().max(300),
+  line: z.number().int().min(1).optional(),
+  column: z.number().int().min(0).optional(),
+});
+export type VerifyIssue = z.infer<typeof verifyIssueSchema>;
+
 /** Preview → studio. */
 export const fromPreviewSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ready'), protocol: z.literal(PREVIEW_PROTOCOL) }),
@@ -89,6 +112,14 @@ export const fromPreviewSchema = z.discriminatedUnion('type', [
     type: z.literal('tree'),
     path: z.string().max(300),
     nodes: z.array(layerNodeSchema).max(500),
+  }),
+  z.object({
+    type: z.literal('verifyResult'),
+    path: z.string().max(300),
+    issues: z.array(verifyIssueSchema).max(MAX_VERIFY_ISSUES),
+    checkedAt: z.iso.datetime(),
+    /** Set when the checks could not run (no rendered screen, play mode, engine failure). */
+    error: z.string().max(300).optional(),
   }),
 ]);
 export type FromPreview = z.infer<typeof fromPreviewSchema>;

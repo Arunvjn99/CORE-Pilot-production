@@ -10,6 +10,7 @@ import {
   type WheelEvent,
 } from 'react';
 import { PreviewFrame } from './preview-frame';
+import type { VerifyResult } from './verify-checks';
 
 export const DEVICES = {
   desktop: { label: 'Desktop', width: 1440, height: 900 },
@@ -97,6 +98,8 @@ export function Canvas({
   onOpenPin,
   onTree,
   selectRequest,
+  verifyRequests,
+  onVerify,
 }: {
   screens: Screen[];
   tokensCss: string;
@@ -117,6 +120,9 @@ export function Canvas({
   onTree?: (path: string, nodes: LayerNode[]) => void;
   /** Ask one screen to select the element at a source location (from the Layers panel). */
   selectRequest?: { path: string; line: number; column: number; nonce: number } | null;
+  /** Per screen path: a request number for the Verify checks (a new number runs them again). */
+  verifyRequests?: Record<string, number>;
+  onVerify?: (path: string, result: VerifyResult) => void;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; camera: Camera } | null>(null);
@@ -265,6 +271,10 @@ export function Canvas({
                     selectRequest={
                       selectRequest?.path === screen.filePath ? selectRequest : undefined
                     }
+                    verifyRequest={verifyRequests?.[screen.filePath]}
+                    onVerify={(result) => {
+                      onVerify?.(screen.filePath, result);
+                    }}
                     onTree={(nodes) => {
                       onTree?.(screen.filePath, nodes);
                     }}

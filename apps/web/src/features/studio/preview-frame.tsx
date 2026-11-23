@@ -6,6 +6,7 @@ import {
   type SelectedElement,
   type ToPreview,
   toPreviewSchema,
+  type VerifyIssue,
 } from '@core-studio/contracts';
 import { useEffect, useRef, useState } from 'react';
 
@@ -29,6 +30,8 @@ export function PreviewFrame({
   onTree,
   selectRequest,
   clearSelectionKey,
+  verifyRequest,
+  onVerify,
 }: {
   previewOrigin: string;
   path: string;
@@ -48,12 +51,16 @@ export function PreviewFrame({
   selectRequest?: { line: number; column: number; nonce: number } | undefined;
   /** Changing this value clears the selection outline inside the frame. */
   clearSelectionKey?: number | undefined;
+  /** Run the Verify checks on the rendered screen; each new value repeats the request. */
+  verifyRequest?: number | undefined;
+  /** Verify check results for this frame's screen. */
+  onVerify?: (result: { issues: VerifyIssue[]; checkedAt: string; error?: string }) => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
-  const handlers = useRef({ onSelect, onNavigate, onError, onTree });
+  const handlers = useRef({ onSelect, onNavigate, onError, onTree, onVerify });
   useEffect(() => {
-    handlers.current = { onSelect, onNavigate, onError, onTree };
+    handlers.current = { onSelect, onNavigate, onError, onTree, onVerify };
   });
 
   const send = (message: ToPreview) => {
@@ -85,6 +92,14 @@ export function PreviewFrame({
         case 'tree':
           if (message.path === path) handlers.current.onTree?.(message.nodes);
           break;
+        case 'verifyResult':
+          if (message.path === path)
+            handlers.current.onVerify?.({
+              issues: message.issues,
+              checkedAt: message.checkedAt,
+              ...(message.error === undefined ? {} : { error: message.error }),
+            });
+          break;
       }
     };
     window.addEventListener('message', listener);
@@ -103,6 +118,11 @@ export function PreviewFrame({
       send({ type: 'selectLoc', line: selectRequest.line, column: selectRequest.column });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- send is stable for a given origin
   }, [ready, selectRequest?.nonce]);
+
+  useEffect(() => {
+    if (ready && verifyRequest !== undefined) send({ type: 'verify' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- send is stable for a given origin
+  }, [ready, verifyRequest]);
 
   useEffect(() => {
     if (ready && clearSelectionKey !== undefined) send({ type: 'clearSelection' });

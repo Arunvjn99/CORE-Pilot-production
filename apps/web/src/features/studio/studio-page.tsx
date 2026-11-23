@@ -54,6 +54,7 @@ import { FileMenu } from './file-menu';
 import { AssetsPanel, LayersTree } from './layers-panel';
 import { PreviewFrame } from './preview-frame';
 import { RightPanel } from './right-panel';
+import { useVerifyChecks } from './verify-checks';
 import { HistoryPanel } from './history-panel';
 import {
   exportUrl,
@@ -178,6 +179,7 @@ function Studio({
   const writable = hasPermission(session, 'projects:write') && project.data?.status === 'active';
 
   const history = useEditHistory(projectId, screenList, screens.data?.revision ?? 0);
+  const verify = useVerifyChecks(screenList);
   const pinned = (comments.data ?? []).filter(
     (t) => t.pageId !== null && t.x !== null && t.y !== null,
   );
@@ -568,6 +570,8 @@ function Studio({
               tool={tool}
               pins={pins}
               selectRequest={selectRequest}
+              verifyRequests={verify.requests}
+              onVerify={verify.receive}
               onTree={(path, nodes) => {
                 setTrees((current) => ({ ...current, [path]: nodes }));
               }}
@@ -596,6 +600,16 @@ function Studio({
               screens={screenList}
               revision={screens.data?.revision ?? 0}
               canWrite={canWrite}
+              selectedPath={selectedPath}
+              verify={verify}
+              onShowIssue={(path, line, column) => {
+                if (path !== selectedPath) {
+                  setSelection(null);
+                  setClearKey((k) => k + 1);
+                  setSelectedPath(path);
+                }
+                setSelectRequest({ path, line, column, nonce: Date.now() });
+              }}
               onPlay={() => {
                 setPlaying(
                   screenList.find((s) => s.filePath === selectedPath)?.route ??

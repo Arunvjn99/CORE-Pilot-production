@@ -22,6 +22,8 @@ import { DesignSystemCard } from './design-system-card';
 import { errorText } from './chat-panel';
 import type { SourceChange } from './edit-history';
 import { useRuns, useSourceEdit } from './studio-api';
+import type { ScreenCheck } from './verify-checks';
+import { VerifyChecks } from './verify-panel';
 
 const tab =
   'flex-1 border-b-2 border-transparent px-2 py-2 text-xs font-medium text-text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-accent data-[state=active]:border-accent data-[state=active]:text-text';
@@ -496,6 +498,9 @@ export function RightPanel({
   canWrite,
   onPlay,
   onEdited,
+  selectedPath = null,
+  verify,
+  onShowIssue,
 }: {
   projectId: string;
   teamId: string;
@@ -507,7 +512,14 @@ export function RightPanel({
   onPlay: () => void;
   /** Called after a successful edit with the screen's source before and after (for undo). */
   onEdited: (change: SourceChange) => void;
+  /** The screen selected on the canvas (the one "Run checks" checks). */
+  selectedPath?: string | null;
+  /** Verify checks per screen, and how to run them. Without it the tab shows only the AI review. */
+  verify?: { checks: Record<string, ScreenCheck>; run: (paths: string[]) => void } | undefined;
+  /** Select the element of a Verify issue on the canvas. */
+  onShowIssue?: ((path: string, line: number, column: number) => void) | undefined;
 }) {
+  const [tabValue, setTabValue] = useState('design');
   const edit = useSourceEdit(projectId);
   const runs = useRuns(projectId);
   const latest = runs.data?.[0];
@@ -544,7 +556,7 @@ export function RightPanel({
   );
 
   return (
-    <Tabs.Root defaultValue="design" className="flex h-full flex-col">
+    <Tabs.Root value={tabValue} onValueChange={setTabValue} className="flex h-full flex-col">
       <Tabs.List aria-label="Inspector" className="flex border-b border-border">
         <Tabs.Trigger value="design" className={tab}>
           Design
@@ -618,6 +630,23 @@ export function RightPanel({
         </Section>
       </Tabs.Content>
       <Tabs.Content value="verify" className="flex-1 overflow-y-auto">
+        {verify && (
+          <Section title="Checks">
+            <VerifyChecks
+              screens={screens}
+              selectedPath={selectedPath}
+              checks={verify.checks}
+              onRun={verify.run}
+              onShowIssue={
+                onShowIssue &&
+                ((path, line, column) => {
+                  onShowIssue(path, line, column);
+                  setTabValue('design');
+                })
+              }
+            />
+          </Section>
+        )}
         <Section title="Latest run">
           {!latest ? (
             <p className="text-xs text-text-muted">No design runs yet.</p>

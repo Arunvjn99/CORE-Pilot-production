@@ -2,6 +2,11 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-23 · Verify checks; live thumbnails; plan to-dos
+
+- **Verify tab:** Run checks / Check all screens runs axe-core (WCAG 2.2 AA) and design-system checks (hard-coded colours, palette colours, small text, small touch targets, missing alt) inside the preview; issues grouped by severity, click to select the element. Protocol: `verify` / `verifyResult`.
+- Live first-screen thumbnails on file cards; planner to-dos in the AI timeline.
+
 ### 2026-11-23 · V7 — prototype triggers, back and transitions
 
 - **Prototype tab:** Trigger (on click, on hover, after delay with milliseconds), Action (navigate to a screen, or **Back**), Transition (instant, dissolve). Stored as source attributes `data-link`, `data-trigger`, `data-delay`, `data-transition`, validated in the contract and API (routes or `back` only; known triggers; 0–30 000 ms).

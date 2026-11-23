@@ -4,12 +4,14 @@ import {
   PREVIEW_PROTOCOL,
   type PreviewMode,
   toPreviewSchema,
+  type VerifyIssue,
 } from '@core-studio/contracts';
 import * as React from 'react';
 import { Component, type ComponentType, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { compileScreen } from './compile';
 import { buildLayerTree, describeElement } from './picker';
+import { verifyScreen } from './verify';
 
 /**
  * The preview runtime. It runs on its own origin (a different site from the studio), receives screen
@@ -76,6 +78,9 @@ export async function start(): Promise<void> {
   let mode: PreviewMode = 'design';
   let path = '';
   let selected: Element | null = null;
+  /** Resolves once the latest render has committed; false when it failed. */
+  let settled: Promise<boolean> = Promise.resolve(false);
+  let renderOk = false;
   const hoverBox = document.getElementById('core-hover');
   const selectBox = document.getElementById('core-select');
 
@@ -196,6 +201,46 @@ export async function start(): Promise<void> {
     attributes: true,
   });
 
+  /** Verify checks, on request only and never in play mode. Overlays are hidden while they run. */
+  const verify = async () => {
+    const checkedPath = path;
+    const result = (error?: string, issues: VerifyIssue[] = []) => {
+      post({
+        type: 'verifyResult',
+        path: checkedPath,
+        issues,
+        checkedAt: new Date().toISOString(),
+        ...(error ? { error } : {}),
+      });
+    };
+    if (!checkedPath) return;
+    if (mode !== 'design') {
+      result('Checks run on the design canvas, not in play mode.');
+      return;
+    }
+    const ok = await settled;
+    // Let effects and the layer-tree debounce settle before measuring.
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    if (!ok || !renderOk) {
+      result('The screen did not render. Fix the error, then run the checks again.');
+      return;
+    }
+    place(hoverBox, null);
+    place(selectBox, null);
+    try {
+      result(undefined, await verifyScreen(rootElement));
+    } catch (error) {
+      result(
+        `The checks failed: ${error instanceof Error ? error.message : 'unknown error'}`.slice(
+          0,
+          300,
+        ),
+      );
+    } finally {
+      place(selectBox, selected);
+    }
+  };
+
   window.addEventListener('message', (event: MessageEvent) => {
     if (event.origin !== studioOrigin || event.source !== window.parent) return;
     const parsed = toPreviewSchema.safeParse(event.data);
@@ -224,16 +269,26 @@ export async function start(): Promise<void> {
       post({ type: 'select', element: describeElement(el, path) });
       return;
     }
+    if (message.type === 'verify') {
+      void verify();
+      return;
+    }
     mode = message.mode;
     path = message.path;
     tokens.textContent = message.tokensCss;
     try {
       const Screen = evaluate(compileScreen(message.code, message.path));
       root ??= createRoot(rootElement);
+      renderOk = true;
+      let markSettled: (ok: boolean) => void = () => undefined;
+      settled = new Promise((resolve) => {
+        markSettled = resolve;
+      });
       root.render(
         <ErrorBoundary
           key={Math.random()}
           onError={(m) => {
+            renderOk = false;
             post({ type: 'error', message: m.slice(0, 2000) });
           }}
         >
@@ -248,8 +303,11 @@ export async function start(): Promise<void> {
         place(selectBox, selected);
         post({ type: 'rendered', path });
         armDelay();
+        markSettled(renderOk);
       });
     } catch (error) {
+      renderOk = false;
+      settled = Promise.resolve(false);
       post({
         type: 'error',
         message: (error instanceof Error ? error.message : 'Render failed').slice(0, 2000),

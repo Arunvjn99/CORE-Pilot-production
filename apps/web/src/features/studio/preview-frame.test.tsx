@@ -263,4 +263,85 @@ describe('PreviewFrame', () => {
     );
     expect(postMessage).toHaveBeenLastCalledWith({ type: 'selectLoc', line: 3, column: 4 }, ORIGIN);
   });
+
+  it('sends verify requests after ready and passes on verify results for its own file only', () => {
+    const onVerify = vi.fn();
+    const props = {
+      previewOrigin: ORIGIN,
+      path: PATH,
+      code: CODE,
+      tokensCss: TOKENS,
+      mode: 'design' as const,
+      title: 'Home',
+      width: 390,
+      height: 844,
+      onVerify,
+    };
+    const { win, postMessage, rerender } = renderFrame({ onVerify, verifyRequest: 1 });
+    // A request made before the preview is ready is sent once it is, after the render.
+    expect(postMessage).not.toHaveBeenCalled();
+    dispatch(ready, ORIGIN, win);
+    expect(postMessage.mock.calls.map((c) => (c[0] as { type: string }).type)).toEqual([
+      'render',
+      'verify',
+    ]);
+    expect(postMessage).toHaveBeenLastCalledWith({ type: 'verify' }, ORIGIN);
+    postMessage.mockClear();
+    rerender(<PreviewFrame {...props} verifyRequest={1} />);
+    expect(postMessage).not.toHaveBeenCalled();
+    rerender(<PreviewFrame {...props} verifyRequest={2} />);
+    expect(postMessage).toHaveBeenCalledWith({ type: 'verify' }, ORIGIN);
+
+    const issue = {
+      id: 'button-name',
+      severity: 'critical',
+      category: 'accessibility',
+      message: 'Element does not have inner text',
+      help: 'Buttons must have discernible text',
+      line: 4,
+      column: 6,
+    };
+    const result = {
+      type: 'verifyResult',
+      path: PATH,
+      issues: [issue],
+      checkedAt: '2026-11-23T10:00:00.000Z',
+    };
+    dispatch({ ...result, path: 'src/pages/other.tsx' }, ORIGIN, win);
+    dispatch(result, 'https://evil.test', win);
+    dispatch(result, ORIGIN, window);
+    expect(onVerify).not.toHaveBeenCalled();
+
+    // Schema-invalid results are dropped.
+    const invalid: unknown[] = [
+      { ...result, issues: [{ ...issue, severity: 'blocker' }] },
+      { ...result, issues: [{ ...issue, message: 'x'.repeat(301) }] },
+      { ...result, issues: [{ ...issue, line: 0 }] },
+      { ...result, issues: Array.from({ length: 201 }, () => issue) },
+      { ...result, checkedAt: 'yesterday' },
+    ];
+    for (const data of invalid) {
+      expect(fromPreviewSchema.safeParse(data).success).toBe(false);
+      dispatch(data, ORIGIN, win);
+    }
+    expect(onVerify).not.toHaveBeenCalled();
+
+    dispatch(result, ORIGIN, win);
+    expect(onVerify).toHaveBeenCalledWith({
+      issues: [issue],
+      checkedAt: '2026-11-23T10:00:00.000Z',
+    });
+    dispatch({ ...result, issues: [], error: 'The screen did not render.' }, ORIGIN, win);
+    expect(onVerify).toHaveBeenLastCalledWith({
+      issues: [],
+      checkedAt: '2026-11-23T10:00:00.000Z',
+      error: 'The screen did not render.',
+    });
+  });
+
+  it('accepts verify as a studio message and nothing that looks like it', () => {
+    expect(toPreviewSchema.safeParse({ type: 'verify' }).success).toBe(true);
+    expect(toPreviewSchema.parse({ type: 'verify', code: 'alert(1)' })).toEqual({ type: 'verify' });
+    expect(toPreviewSchema.safeParse({ type: 'verifyAll' }).success).toBe(false);
+  });
 });
