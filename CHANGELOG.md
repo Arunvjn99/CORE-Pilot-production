@@ -2,6 +2,11 @@
 
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
+### 2026-11-23 · Automatic Trash clean-up
+
+- Files in Trash longer than `TRASH_RETENTION_DAYS` (default 30; 0 turns it off) are deleted forever by an hourly job: one API replica at a time (Redis lock), teams listed in the company-admin context, each team's files purged in that team's own RLS context through `purge_trashed_project`, repositories removed, audited as `system:trash-retention`.
+- Tests: 2 new integration tests (total **189**).
+
 ### 2026-11-23 · Knowledge base and "Test this agent" (V4)
 
 - **Settings → Knowledge:** team documents (markdown) the agents follow; create, edit, enable/disable, delete; admins/owners edit, everyone reads. Enabled documents are added to every design run after DESIGN.md (capped at 60 000 characters); the run records which documents it used. Migration 0012 (RLS forced).

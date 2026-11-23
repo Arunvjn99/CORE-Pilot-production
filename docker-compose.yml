@@ -95,6 +95,7 @@ services:
       # Project repositories (Azure: Azure Files share mounted only into the API).
       PREVIEW_ORIGIN: ${PREVIEW_ORIGIN:-http://127.0.0.1:8090}
       LANGSMITH_TRACING: ${LANGSMITH_TRACING:-false}
+      TRASH_RETENTION_DAYS: ${TRASH_RETENTION_DAYS:-30}
       REPO_ROOT: /data/repos
       BUNDLE_ROOT: /data/bundles
     volumes:

@@ -71,6 +71,8 @@ export const envSchema = z
           .filter(Boolean),
       )
       .pipe(z.array(z.uuid())),
+    /** Files in Trash longer than this are deleted forever by an hourly job; 0 turns it off. */
+    TRASH_RETENTION_DAYS: z.coerce.number().int().min(0).max(3650).default(30),
     /** Maximum duration of one AI design run (all agents). */
     DESIGN_RUN_TIMEOUT_SECONDS: z.coerce.number().int().min(30).max(1800).default(600),
     /** Origin that serves the preview runtime. Must be a different site from PUBLIC_APP_ORIGIN. */
