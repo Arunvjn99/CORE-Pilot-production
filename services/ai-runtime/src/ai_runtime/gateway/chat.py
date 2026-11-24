@@ -19,6 +19,9 @@ class ChatError(Exception):
         self.code = code
 
 
+ANTHROPIC_TOKEN_HEADROOM = 2
+
+
 @dataclass(frozen=True, slots=True)
 class ChatResult:
     text: str
@@ -66,11 +69,13 @@ def _build(
             return (
                 "https://api.anthropic.com/v1/messages",
                 {"x-api-key": secret, "anthropic-version": "2023-06-01"},
+                # No sampling parameters: current Claude models reject temperature/top_p with a 400.
+                # Thinking is on by default on current models and shares max_tokens with the answer,
+                # so the budget is doubled to leave room for it.
                 {
                     "model": model,
                     "system": system,
-                    "max_tokens": max_tokens,
-                    "temperature": 0.4,
+                    "max_tokens": max_tokens * ANTHROPIC_TOKEN_HEADROOM,
                     "messages": [{"role": "user", "content": user}],
                 },
                 {},
@@ -94,6 +99,11 @@ def _parse(target: ProviderTarget, payload: Any, model: str) -> ChatResult:
     try:
         match target.provider:
             case "anthropic":
+                stop = payload.get("stop_reason")
+                if stop == "refusal":
+                    raise ChatError("refused")
+                if stop == "max_tokens":
+                    raise ChatError("truncated")
                 text = "".join(b.get("text", "") for b in payload["content"] if b.get("type") == "text")
                 usage = payload.get("usage", {})
                 return ChatResult(text, int(usage.get("input_tokens", 0)), int(usage.get("output_tokens", 0)), model)

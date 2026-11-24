@@ -25,6 +25,10 @@ const ERRORS: Record<string, string> = {
   runtime_unavailable: 'The AI runtime is unavailable.',
   credential_unavailable: 'The stored key could not be decrypted.',
   no_screens: 'No screens were produced.',
+  truncated: 'The model ran out of output tokens before finishing. Try a smaller request.',
+  refused: 'The model declined this request. Rephrase it and try again.',
+  not_found: 'The provider does not know this model. Pick another default model.',
+  provider_error: 'The provider returned an error. Check the default model and try again.',
 };
 
 export const errorText = (code: string | null) =>

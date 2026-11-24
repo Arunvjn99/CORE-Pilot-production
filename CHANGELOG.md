@@ -1,5 +1,11 @@
 # Changelog
 
+## Anthropic adapter fixes for current Claude models
+
+- The Anthropic chat request no longer sends `temperature` (current Claude models reject it with a 400).
+- Output budget doubled for Anthropic, since thinking is on by default and shares `max_tokens`.
+- A refused or cut-off answer now fails the step with `refused` / `truncated` instead of saving partial output; the editor explains both, plus `not_found` and `provider_error`.
+
 ## [Unreleased] — Studio v2 (re-baseline, in progress)
 
 ### 2026-11-23 · Batched thumbnails (fix); browser checks for Verify and Knowledge

@@ -363,3 +363,37 @@ async def test_tries_next_checked_address_when_first_refuses(monkeypatch: pytest
 @pytest.mark.anyio
 async def test_gemini_invalid_key_is_unauthorized(monkeypatch: pytest.MonkeyPatch) -> None:
     assert (await run_probe(monkeypatch, target("gemini"), Recorder(400, {}))).code == "unauthorized"
+
+
+def test_anthropic_chat_request_has_no_sampling_params_and_thinking_headroom() -> None:
+    from ai_runtime.gateway.chat import _build
+
+    url, headers, body, _ = _build(target("anthropic"), "claude-opus-5-5", "sys", "hi", 8000)
+    assert url == "https://api.anthropic.com/v1/messages"
+    assert headers["anthropic-version"] == "2023-06-01"
+    assert "temperature" not in body
+    assert body["max_tokens"] == 16000
+    assert body["system"] == "sys"
+    assert body["messages"] == [{"role": "user", "content": "hi"}]
+
+
+@pytest.mark.parametrize(("stop", "code"), [("refusal", "refused"), ("max_tokens", "truncated")])
+def test_anthropic_incomplete_answers_raise(stop: str, code: str) -> None:
+    from ai_runtime.gateway.chat import ChatError, _parse
+
+    payload = {"content": [{"type": "text", "text": "partial"}], "stop_reason": stop}
+    with pytest.raises(ChatError) as err:
+        _parse(target("anthropic"), payload, "m")
+    assert err.value.code == code
+
+
+def test_anthropic_answer_skips_thinking_blocks() -> None:
+    from ai_runtime.gateway.chat import _parse
+
+    payload = {
+        "content": [{"type": "thinking", "thinking": ""}, {"type": "text", "text": "ok"}],
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 3, "output_tokens": 5},
+    }
+    result = _parse(target("anthropic"), payload, "m")
+    assert (result.text, result.input_tokens, result.output_tokens) == ("ok", 3, 5)
