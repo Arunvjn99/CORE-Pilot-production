@@ -3,6 +3,7 @@
 ## One-command local start
 
 - `./scripts/up.sh` pulls the latest code (when the tree is clean), starts Docker Desktop on macOS, creates `.env` on first run, moves the API off a busy port, builds and waits until healthy, prints the sign-in details and opens the browser.
+- It retries the download and build up to 3 times when Docker Hub times out, then explains the proxy setting for company networks.
 - It refuses to create new settings over a database left from an earlier setup (whose passwords would not match) and explains how to start fresh.
 
 ## Anthropic adapter fixes for current Claude models

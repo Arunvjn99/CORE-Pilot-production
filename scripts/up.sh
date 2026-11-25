@@ -106,7 +106,29 @@ fi
 
 # 5. Build and start
 say "Building and starting (the first run takes a few minutes)"
-if ! docker compose up -d --build --wait; then
+# Downloads from Docker Hub can time out (a network hiccup, or Docker Desktop just started):
+# download and build up to 3 times before giving up.
+ready=0
+for attempt in 1 2 3; do
+  if docker compose pull --ignore-buildable --quiet && docker compose build; then
+    ready=1
+    break
+  fi
+  if [ "$attempt" -lt 3 ]; then
+    say "A download failed (attempt $attempt of 3); retrying in 10 seconds"
+    sleep 10
+  fi
+done
+if [ "$ready" = 0 ]; then
+  cat >&2 <<MSG
+
+Docker could not download what it needs from the internet after 3 attempts.
+Check your internet connection. On a company network or VPN, Docker Desktop may need the
+proxy set in Settings → Resources → Proxies. Then run this again.
+MSG
+  exit 1
+fi
+if ! docker compose up -d --wait; then
   echo >&2
   docker compose ps -a >&2
   echo "Something did not start. Send the output of: docker compose logs --tail 50" >&2
