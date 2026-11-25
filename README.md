@@ -21,6 +21,16 @@ Node 24 (≥24.15 recommended), Corepack, uv ≥0.11, Docker with Compose v2.
 
 ## Run locally (same images as production)
 
+One command (pulls the latest code, starts Docker Desktop on macOS, creates `.env` on first run,
+moves the API off a busy port, builds, waits until healthy, prints the sign-in and opens the browser):
+
+```bash
+./scripts/up.sh                    # --no-pull keeps the code you have
+docker compose stop                # stop; your data is kept
+```
+
+The same steps by hand:
+
 ```bash
 ./scripts/init-local-env.sh        # creates .env with generated local secrets (never committed)
 docker compose up -d --build --wait

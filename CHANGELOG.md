@@ -1,5 +1,10 @@
 # Changelog
 
+## One-command local start
+
+- `./scripts/up.sh` pulls the latest code (when the tree is clean), starts Docker Desktop on macOS, creates `.env` on first run, moves the API off a busy port, builds and waits until healthy, prints the sign-in details and opens the browser.
+- It refuses to create new settings over a database left from an earlier setup (whose passwords would not match) and explains how to start fresh.
+
 ## Anthropic adapter fixes for current Claude models
 
 - The Anthropic chat request no longer sends `temperature` (current Claude models reject it with a 400).
